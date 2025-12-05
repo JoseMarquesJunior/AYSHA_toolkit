@@ -110,7 +110,7 @@ arquivos_l5x = [
 for caminho in arquivos_l5x:
     processar_arquivo(caminho)
 
-salvar_excel(dados)
+#salvar_excel(dados)
 
 
 

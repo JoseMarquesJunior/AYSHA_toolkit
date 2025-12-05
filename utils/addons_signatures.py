@@ -53,17 +53,18 @@ def calcular_hash(aoi, target_name):
 
 def processar_arquivo(caminho_arquivo):
     root = ler_arquivo_xml(caminho_arquivo)
-    # Pegar o atributo TargetName, que representa o nome do PLC
-    target_name = root.attrib.get("TargetName", "SemTargetName")
-    print(target_name)
-    
-    # Buscar todos os AddOnInstructionDefinition
-    aoi_elements = root.findall('.//AddOnInstructionDefinition')
+    if root:
+        # Pegar o atributo TargetName, que representa o nome do PLC
+        target_name = root.attrib.get("TargetName", "SemTargetName")
+        print(target_name)
+        
+        # Buscar todos os AddOnInstructionDefinition
+        aoi_elements = root.findall('.//AddOnInstructionDefinition')
 
-    
-    for aoi in aoi_elements:   
-        hash_numerico, aoi_name = calcular_hash(aoi, target_name) 
-        dados.append([target_name, aoi_name, hash_numerico])
+        
+        for aoi in aoi_elements:   
+            hash_numerico, aoi_name = calcular_hash(aoi, target_name) 
+            dados.append([target_name, aoi_name, hash_numerico])
 
 def salvar_excel(dados):
     # Criar DataFrame

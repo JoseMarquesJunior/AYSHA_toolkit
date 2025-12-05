@@ -44,7 +44,7 @@ if arquivos and (opcao_addons or opcao_links):
                     caminhos_locais.append(caminho)
 
                 # Executa conforme as opções
-                if opcao_parameters_extraction:
+                if opcao_parameters_extraction and False:
                     print('opção extração de parametros escolhida')
                     with st.spinner("Processando arquivos..."):
                         # Cria diretório temporário para salvar uploads
@@ -69,8 +69,7 @@ if arquivos and (opcao_addons or opcao_links):
                                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                 )
 
-
-                if opcao_addons:
+                if opcao_addons and False:
                     saida_addons = os.path.join(tmpdir, "addons_signatures.xlsx")
                     processar_addons(caminhos_locais, saida_addons)
                     with open(saida_addons, "rb") as f:
@@ -81,7 +80,7 @@ if arquivos and (opcao_addons or opcao_links):
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
 
-                if opcao_links:
+                if opcao_links and False:
                     saida_links = os.path.join(tmpdir, "verificacao_links.xlsx")
                     verificar_links(caminhos_locais, saida_links)
                     with open(saida_links, "rb") as f:

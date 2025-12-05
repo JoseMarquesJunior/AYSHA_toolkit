@@ -86,6 +86,10 @@ def salvar_excel(dados):
     
     print("Planilha criada com sucesso!")
 
+
+def processar_addons():
+    pass
+
 dados = []
 hashes = {}
 

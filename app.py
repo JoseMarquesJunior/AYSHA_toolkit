@@ -30,9 +30,8 @@ opcao_parameters_extraction = st.checkbox("Extração de parâmetros")
 opcao_addons = st.checkbox("Gerar Add-ons Signatures (hash dos blocos)")
 opcao_links = st.checkbox("Verificação de Links")
 
-
 # --- Processamento ---
-if arquivos and (opcao_addons or opcao_links):
+if arquivos and (opcao_parameters_extraction or opcao_addons or opcao_links):
     if st.button("▶️ Executar Processamento"):
         with st.spinner("Processando arquivos..."):
             with tempfile.TemporaryDirectory() as tmpdir:

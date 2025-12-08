@@ -9,12 +9,12 @@ from utils.link_verification import main_link_verification
 
 
 st.set_page_config(
-    page_title="PLC Tools Web",
+    page_title="AYSHA PLC Toolkit",
     page_icon="⚙️",
     layout="wide"
 )
 
-st.title("⚙️ PLC Toolkit Web")
+st.title("⚙️ AYSHA PLC Toolkit")
 st.write("Envie os arquivos `.L5X` e selecione as funcionalidades que deseja executar.")
 
 # --- Upload de arquivos ---
@@ -44,7 +44,7 @@ if arquivos and (opcao_addons or opcao_links):
                     caminhos_locais.append(caminho)
 
                 # Executa conforme as opções
-                if opcao_parameters_extraction and False:
+                if opcao_parameters_extraction:
                     print('opção extração de parametros escolhida')
                     with st.spinner("Processando arquivos..."):
                         # Cria diretório temporário para salvar uploads

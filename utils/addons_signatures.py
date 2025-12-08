@@ -112,8 +112,10 @@ arquivos_l5x = [
 
 # Loop para processar todos os arquivos
 for caminho in arquivos_l5x:
-    processar_arquivo(caminho)
+    # processar_arquivo(caminho)
+    print('.')
 
+print('add_on signatures...')
 #salvar_excel(dados)
 
 

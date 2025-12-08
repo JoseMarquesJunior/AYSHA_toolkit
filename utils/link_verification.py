@@ -225,7 +225,10 @@ arquivos_l5x = [
 
 # Process all files in sequence
 for caminho_arquivo in arquivos_l5x:
-    processar_arquivo(caminho_arquivo)
+    #processar_arquivo(caminho_arquivo)
+    print('.')
+
+print('link verification...')
 
 # Save the combined result
-salvar_excel()
+#salvar_excel()

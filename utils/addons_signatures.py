@@ -87,9 +87,6 @@ def salvar_excel(dados):
     print("Planilha criada com sucesso!")
 
 
-def processar_addons():
-    pass
-
 dados = []
 hashes = {}
 
@@ -110,13 +107,14 @@ arquivos_l5x = [
     "backups_PLC/Hull/20251007/P80_HULLSIDE_HFGS02.L5X"
 ]
 
-# Loop para processar todos os arquivos
-for caminho in arquivos_l5x:
-    # processar_arquivo(caminho)
-    print('.')
+def processar_addons():
+    # Loop para processar todos os arquivos
+    for caminho in arquivos_l5x:
+        # processar_arquivo(caminho)
+        print('.')
 
-print('add_on signatures...')
-#salvar_excel(dados)
+    print('add_on signatures...')
+    #salvar_excel(dados)
 
 
 

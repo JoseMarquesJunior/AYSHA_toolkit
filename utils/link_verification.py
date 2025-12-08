@@ -223,12 +223,13 @@ arquivos_l5x = [
     "backups_PLC/Hull/20251007/P80_HULLSIDE_HFGS02.L5X"
 ]
 
-# Process all files in sequence
-for caminho_arquivo in arquivos_l5x:
-    #processar_arquivo(caminho_arquivo)
-    print('.')
+def main_link_verification():
+    # Process all files in sequence
+    for caminho_arquivo in arquivos_l5x:
+        #processar_arquivo(caminho_arquivo)
+        print('.')
 
-print('link verification...')
+    print('link verification...')
 
 # Save the combined result
 #salvar_excel()

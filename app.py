@@ -5,7 +5,7 @@ import os
 # Importa as funcionalidades
 from utils.parameters_extraction import gerar_planilhas_por_addon
 from utils.addons_signatures import processar_addons
-from utils.link_verification import verificar_links
+from utils.link_verification import link_verification
 
 
 st.set_page_config(

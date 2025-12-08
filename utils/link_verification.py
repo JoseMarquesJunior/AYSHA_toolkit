@@ -201,33 +201,10 @@ def map_ID_operands(routine):
     return id_to_operand
 
 
-# -------------------------------------------------------------
-# Main execution
-# -------------------------------------------------------------
-dados = []
 
-# List of all L5X project files to be processed
-arquivos_l5x = [
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_PCS01.L5X",
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_PCS02.L5X",
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_PCS03.L5X",
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_PSD01.L5X",
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_PSD02.L5X",
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_PSD03.L5X",
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_FGS01.L5X",
-    "backups_PLC/Topsides/20251011/P80_TOPSIDE_FGS02.L5X",
-    "backups_PLC/Hull/20251007/P80_HULL_HCS01.L5X",
-    "backups_PLC/Hull/20251007/P80_HULL_HCS02.L5X",
-    "backups_PLC/Hull/20251007/P80_HULL_HSD01.L5X",
-    "backups_PLC/Hull/20251007/P80_HULLSIDE_HFGS01.L5X",
-    "backups_PLC/Hull/20251007/P80_HULLSIDE_HFGS02.L5X"
-]
 
 def main_link_verification():
     # Process all files in sequence
-    for caminho_arquivo in arquivos_l5x:
-        #processar_arquivo(caminho_arquivo)
-        print('.')
 
     print('link verification...')
 

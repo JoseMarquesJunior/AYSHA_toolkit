@@ -5,7 +5,7 @@ import os
 # Importa as funcionalidades
 from utils.parameters_extraction import gerar_planilhas_por_addon
 from utils.addons_signatures import processar_addons
-from utils.link_verification import link_verification
+from utils.link_verification import main_link_verification
 
 
 st.set_page_config(
@@ -82,7 +82,7 @@ if arquivos and (opcao_addons or opcao_links):
 
                 if opcao_links and False:
                     saida_links = os.path.join(tmpdir, "verificacao_links.xlsx")
-                    verificar_links(caminhos_locais, saida_links)
+                    main_link_verification(caminhos_locais, saida_links)
                     with open(saida_links, "rb") as f:
                         st.download_button(
                             "⬇️ Baixar resultado: Verificação de Links",

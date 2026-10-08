@@ -5,9 +5,9 @@ extrai a estrutura de forma **determinística** (`l5x_core`) e, nas fases seguin
 explicar, revisar, documentar e conversar sobre o código. O produto é de **leitura**: nunca gera,
 altera ou envia código para o controlador.
 
-Estado atual: **Fase 1 concluída** (parser, referências cruzadas, regras de análise, serialização e CLI).
-Fases 2 (camada LLM) e 3 (interface Streamlit) ainda não foram iniciadas. O plano completo está em
-[PROMPT_MVP_L5X.md](PROMPT_MVP_L5X.md).
+Estado atual: **Fases 1 e 2 concluídas** (parser + análise determinística; camada LLM com prompts,
+retrieval, cache e orçamento de contexto). Fase 3 (interface Streamlit) ainda não foi iniciada.
+O plano completo está em [PROMPT_MVP_L5X.md](PROMPT_MVP_L5X.md).
 
 ## Como exportar o L5X no Studio 5000
 
@@ -36,6 +36,54 @@ python -m pytest -q
 O teste `test_real_sample_parses_fast` roda contra `samples/P80_HULL_HCS01.L5X` se o arquivo existir
 (e é pulado se não existir). Nos exemplos de 31 MB e 46 MB o parse completo leva cerca de 1 a 2 s.
 
+## Camada LLM (Fase 2)
+
+Configuração: copie `.env.example` para `.env` (ou `.streamlit/secrets.toml.example` para
+`.streamlit/secrets.toml`) e preencha `ANTHROPIC_API_KEY`, `MODEL_FAST` (explicar, conversar) e
+`MODEL_DEEP` (revisar, documentar). Os IDs de modelo **não** ficam no código: consulte
+https://docs.claude.com/en/docs/about-claude/models. Variáveis opcionais: `LLM_EFFORT_FAST` /
+`LLM_EFFORT_DEEP` (`low`…`max`; deixe vazio para modelos que não aceitam `output_config.effort`),
+`MAX_CONTEXT_TOKENS` (padrão 60000), `MAX_OUTPUT_TOKENS` (16000), `APP_LANGUAGE` (`pt-BR`, `en`, `es`),
+`LLM_LOG_PATH` (CSV de métricas; vazio desativa).
+
+Teste manual com chave real:
+
+```bash
+python -m app.llm samples/P80_HULL_HCS01.L5X --mode explain --target DIAGNOSTICS/CPU_Status
+python -m app.llm samples/P80_HULL_HCS01.L5X --mode review --target Control_Loops
+python -m app.llm samples/P80_HULL_HCS01.L5X --mode document --target DIAGNOSTICS
+python -m app.llm samples/P80_HULL_HCS01.L5X --mode chat --question "o que liga Blackout_Start_Activation?"
+```
+
+Como funciona:
+
+- `app/llm.py`: `LLMConfig.from_env()`, `ProjectContext` (índice do projeto + tabelas determinísticas de
+  timers e I/O), `LLMClient` com os quatro modos (`explain`, `review`, `document`, `chat`), streaming
+  (`on_text`), map-reduce quando o escopo não cabe no orçamento, consolidação recursiva, tratamento de
+  `refusal`/`max_tokens` e mapeamento de erros da API para mensagens em português (`LLMError.kind`).
+- **Prompt caching**: o bloco de sistema é `[regras fixas (system.md), visão geral do projeto]` com
+  `cache_control: ephemeral` no segundo bloco; o conteúdo variável (rotinas, findings, pergunta) vai na
+  mensagem do usuário, então a visão geral é reaproveitada em todas as chamadas da sessão. Verifique com
+  `cache_read_tokens` no CSV.
+- **Orçamento**: `MAX_CONTEXT_TOKENS` menos o bloco de sistema e uma reserva. Rotinas são empacotadas em
+  pedaços (greedy, na ordem do projeto); uma rotina maior que o orçamento é dividida em fronteiras de rung,
+  linha ST ou tag. Revisão/documentação completas rodam rotina a rotina e consolidam (`consolidate.md`).
+  Nos dois exemplos reais, nenhuma chamada passa de ~59 mil tokens estimados.
+- `app/retrieval.py`: sem vetor. Pontua rotinas por nome de rotina/programa citado, tags citadas
+  (resolvidas pelo xref para as rotinas que as usam), palavras da descrição e dos comentários; sem
+  correspondência, cai nas rotinas principais dos programas agendados.
+- `app/prompts/*.md`: `system.md` (aterramento, citação `Programa/Rotina rung N`, idioma, safety,
+  protegido, FBD, "confirmado pelo parser" vs "hipótese do modelo", aviso final de revisão), `explain.md`,
+  `review.md`, `document.md`, `chat.md`, `consolidate.md`.
+- Log `llm_calls.csv`: timestamp, modo, modelo, tokens de entrada/saída, tokens lidos/gravados no cache,
+  contexto estimado, latência, status. Nunca contém conteúdo do programa (há teste para isso).
+- Testes (`tests/test_llm.py`, `tests/test_retrieval.py`) usam um cliente falso (`tests/fake_anthropic.py`);
+  nenhum teste chama a API.
+
+Decisões: o parâmetro `thinking` não é enviado (os modelos atuais já usam raciocínio adaptativo por
+padrão); `fallbacks` de recusa no servidor não foi ativado porque depende do modelo configurado; uma
+recusa (`stop_reason = refusal`) é devolvida como texto explicativo com `LLMResult.refusal = True`.
+
 ## Estrutura
 
 ```
@@ -48,6 +96,10 @@ l5x_core/
   analysis.py    regras determinísticas -> Finding; métricas
   serialize.py   project_overview(), routine_text(), tag_sheet(), to_json() com estimativa de tokens
   cli.py         linha de comando
+app/
+  llm.py         LLMConfig, ProjectContext, LLMClient (explain/review/document/chat), log CSV, CLI
+  retrieval.py   seleção de rotinas relevantes para uma pergunta
+  prompts/       system.md, explain.md, review.md, document.md, chat.md, consolidate.md
 tests/
   data/minimal.l5x   L5X sintético que cobre todas as regras
   test_*.py
@@ -114,8 +166,6 @@ Confirmadas nos dois L5X de exemplo (Studio 5000 v35):
 - O parser nunca registra em log o conteúdo do programa; findings carregam apenas trechos curtos de evidência.
 - Conteúdo `EncodedData` nunca é decodificado.
 
-## Fases seguintes (não iniciadas)
+## Fase seguinte (não iniciada)
 
-- **Fase 2**: `app/llm.py`, `app/retrieval.py`, `app/prompts/` (SDK `anthropic`, prompt caching, IDs de modelo
-  em `.env`/secrets; ver https://docs.claude.com/en/docs/about-claude/models).
 - **Fase 3**: `app/streamlit_app.py`, `app/credits.py` (códigos de acesso em SQLite), `streamlit run app/streamlit_app.py`.

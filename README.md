@@ -5,15 +5,58 @@ extrai a estrutura de forma **determinística** (`l5x_core`) e, nas fases seguin
 explicar, revisar, documentar e conversar sobre o código. O produto é de **leitura**: nunca gera,
 altera ou envia código para o controlador.
 
-Estado atual: **Fases 1 e 2 concluídas** (parser + análise determinística; camada LLM com prompts,
-retrieval, cache e orçamento de contexto). Fase 3 (interface Streamlit) ainda não foi iniciada.
-O plano completo está em [PROMPT_MVP_L5X.md](PROMPT_MVP_L5X.md).
+Estado atual: **Fases 1, 2 e 3 concluídas** (parser + análise determinística; camada LLM; interface
+Streamlit com códigos de acesso). O plano completo está em [PROMPT_MVP_L5X.md](PROMPT_MVP_L5X.md).
 
 ## Como exportar o L5X no Studio 5000
 
 1. Abra o projeto `.ACD` no Studio 5000 Logix Designer.
 2. `File → Save As…`, em *Save as type* escolha **L5X** e salve.
 3. Coloque o arquivo em `samples/` (pasta ignorada pelo git). Nunca versione um projeto real.
+
+## Rodar localmente (app web)
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env            # preencha ANTHROPIC_API_KEY, MODEL_FAST, MODEL_DEEP
+python -m app.credits add MEUCODIGO --owner "Seu nome" --quota 20
+streamlit run app/streamlit_app.py
+```
+
+Abra http://localhost:8501, digite o código de acesso, envie o `.L5X` (limite de 300 MB em
+`.streamlit/config.toml`). A barra lateral mostra o resumo, os findings por severidade, avisos de conteúdo
+protegido/safety, o seletor de idioma (pt-BR, en, es) e o saldo de créditos. Na área principal: seletor de
+programa/rotina, escopo (rotina, programa, projeto), a tabela de findings determinísticos do escopo (grátis)
+e os botões **Explicar**, **Revisar riscos e qualidade** e **Gerar documentação**, cada um com o custo em
+créditos ao lado (1 crédito; documentação do projeto inteiro custa 3). O chat fica no fim da página
+(1 crédito por pergunta). Cada resultado tem botão **Baixar Markdown**.
+
+Créditos são debitados só quando a chamada ao modelo termina com sucesso. Erros aparecem na tela:
+arquivo inválido, rotina protegida (botões desabilitados), camada LLM não configurada, limite de contexto,
+chave inválida, limite de requisições, falha de rede.
+
+### Códigos de acesso
+
+```bash
+python -m app.credits add CODIGO --owner nome --quota 20      # cria
+python -m app.credits add CODIGO --owner nome --quota 50 --replace   # altera dono/cota
+python -m app.credits list
+python -m app.credits reset CODIGO                            # zera o uso
+python -m app.credits remove CODIGO
+```
+
+Banco SQLite em `credits.db` (ou `CREDITS_DB`). Em hospedagem efêmera, defina `ACCESS_CODES`
+(variável ou secret) como `codigo:dono:cota,codigo2:dono2:cota2`: os códigos que não existirem são criados
+quando o app inicia.
+
+### Publicar no Streamlit Community Cloud
+
+1. Suba o repositório no GitHub **sem** `samples/`, `.env`, `secrets.toml` e `*.db` (já estão no `.gitignore`).
+2. Em https://share.streamlit.io crie o app apontando para `app/streamlit_app.py`.
+3. Em *Settings → Secrets* cole o conteúdo de `.streamlit/secrets.toml.example` preenchido, mais uma linha
+   `ACCESS_CODES = "CODIGO1:nome:20,CODIGO2:nome2:10"` (o disco do Community Cloud é efêmero, então o
+   SQLite é recriado a cada deploy e semeado a partir desse secret; o consumo de créditos reinicia junto).
+4. O limite de upload vem de `.streamlit/config.toml` (300 MB).
 
 ## Instalação e uso da CLI
 
@@ -100,6 +143,8 @@ app/
   llm.py         LLMConfig, ProjectContext, LLMClient (explain/review/document/chat), log CSV, CLI
   retrieval.py   seleção de rotinas relevantes para uma pergunta
   prompts/       system.md, explain.md, review.md, document.md, chat.md, consolidate.md
+  streamlit_app.py  interface (código de acesso, upload, resumo, findings, 4 ações, chat, download)
+  credits.py     códigos de acesso e cotas em SQLite + CLI
 tests/
   data/minimal.l5x   L5X sintético que cobre todas as regras
   test_*.py
@@ -166,6 +211,12 @@ Confirmadas nos dois L5X de exemplo (Studio 5000 v35):
 - O parser nunca registra em log o conteúdo do programa; findings carregam apenas trechos curtos de evidência.
 - Conteúdo `EncodedData` nunca é decodificado.
 
-## Fase seguinte (não iniciada)
+## Notas da Fase 3
 
-- **Fase 3**: `app/streamlit_app.py`, `app/credits.py` (códigos de acesso em SQLite), `streamlit run app/streamlit_app.py`.
+- O upload é gravado em um `TemporaryDirectory` só durante o parsing e apagado em seguida; o modelo parseado
+  fica em `st.cache_resource` chaveado pelo hash SHA-256 do arquivo (TTL 1 h, 4 entradas). Usei
+  `cache_resource` em vez de `cache_data` porque `cache_data` copia (pickle) o modelo inteiro a cada rerun,
+  o que custa segundos nos projetos de 30 a 50 MB.
+- Os testes da interface usam `streamlit.testing.v1.AppTest` (login, código inválido, saldo, idioma, logout,
+  semeadura de códigos). O `file_uploader` não é suportado pelo AppTest, então o fluxo de parsing é coberto
+  chamando as funções auxiliares diretamente.

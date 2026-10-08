@@ -24,6 +24,9 @@
       "onAutoForward": "openPreview"
     }
   },
+  "postAttachCommand": {
+    "server": "streamlit run app/streamlit_app.py --server.enableCORS false --server.enableXsrfProtection false"
+  },
   "forwardPorts": [
     8501
   ]

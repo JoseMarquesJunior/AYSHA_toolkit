@@ -72,13 +72,8 @@ def _blank_out(text: str, pattern: re.Pattern) -> str:
     return pattern.sub(repl, text)
 
 
-def extract_st_refs(
-    lines: Sequence[STLine],
-    aoi_usages: Optional[Dict[str, List[str]]] = None,
-) -> Tuple[List[TagRef], List[str]]:
-    """Return (tag references, called routine names) for an ST routine."""
-    if not lines:
-        return [], []
+def _prepare(lines: Sequence[STLine]):
+    """Blank comments/strings/radix literals and build an offset -> line-number map."""
     numbers = [ln.number for ln in lines]
     text = "\n".join(ln.text for ln in lines)
     text = _blank_out(text, _BLOCK_COMMENT_RE)
@@ -86,7 +81,6 @@ def extract_st_refs(
     text = _blank_out(text, _STRING_RE)
     text = _blank_out(text, _RADIX_RE)
 
-    # map character offset -> line number
     line_starts = [0]
     for i, ch in enumerate(text):
         if ch == "\n":
@@ -101,6 +95,36 @@ def extract_st_refs(
             else:
                 hi = mid - 1
         return numbers[lo] if lo < len(numbers) else numbers[-1]
+
+    return text, line_of
+
+
+def extract_st_calls(lines: Sequence[STLine], aoi_usages: Dict[str, List[str]]) -> List[Tuple[str, List[str], int]]:
+    """AOI invocations in an ST routine: [(aoi name as written, [args incl. instance], line number)].
+
+    Approximate: a regex scan, so a call hidden in an unusual construct may be missed.
+    """
+    if not lines or not aoi_usages:
+        return []
+    text, line_of = _prepare(lines)
+    out: List[Tuple[str, List[str], int]] = []
+    for m in _CALL_RE.finditer(text):
+        name = m.group(1)
+        if name.lower() not in aoi_usages:
+            continue
+        args = [a for a, _ in _call_args(text, m.end())]
+        out.append((name, args, line_of(m.start(1))))
+    return out
+
+
+def extract_st_refs(
+    lines: Sequence[STLine],
+    aoi_usages: Optional[Dict[str, List[str]]] = None,
+) -> Tuple[List[TagRef], List[str]]:
+    """Return (tag references, called routine names) for an ST routine."""
+    if not lines:
+        return [], []
+    text, line_of = _prepare(lines)
 
     calls: List[str] = []
     writes: Dict[Tuple[str, int], bool] = {}

@@ -2,6 +2,10 @@
 
     python -m l5x_core.cli file.L5X --summary --findings
     python -m l5x_core.cli file.L5X --dump-routine Programa/Rotina
+    python -m l5x_core.cli file.L5X --dump-routine aoi:NomeDaAoi/Logic
+    python -m l5x_core.cli file.L5X --aois                       # tabela de AOIs
+    python -m l5x_core.cli file.L5X --aoi NomeDaAoi              # relatório Markdown (documentação + debug)
+    python -m l5x_core.cli file.L5X --aoi NomeDaAoi --aoi-text   # texto da AOI como o LLM recebe
     python -m l5x_core.cli file.L5X --json saida.json
 """
 
@@ -13,9 +17,10 @@ import time
 from typing import List
 
 from .analysis import analyze
+from .aoi import aoi_markdown, aoi_summary_rows, build_aoi_report
 from .model import Finding, SEVERITIES
 from .parser import parse_file, L5XError
-from .serialize import project_overview, routine_text, tag_sheet, to_json
+from .serialize import aoi_text, project_overview, routine_text, tag_sheet, to_json
 from .xref import build_xref
 
 
@@ -43,8 +48,11 @@ def main(argv: List[str] | None = None) -> int:
     ap.add_argument("--findings", action="store_true", help="tabela de findings")
     ap.add_argument("--min-severity", default="info", choices=SEVERITIES, help="severidade mínima para --findings")
     ap.add_argument("--rule", action="append", default=[], help="filtra --findings por regra (repetível)")
-    ap.add_argument("--dump-routine", metavar="PROGRAMA/ROTINA", help="texto de uma rotina")
+    ap.add_argument("--dump-routine", metavar="PROGRAMA/ROTINA", help="texto de uma rotina (use aoi:NOME/ROTINA para rotinas de AOI)")
     ap.add_argument("--tags", action="store_true", help="tabela de tags com contagem de leituras/escritas")
+    ap.add_argument("--aois", action="store_true", help="tabela das AOIs: parâmetros, rotinas, instâncias, chamadas e findings")
+    ap.add_argument("--aoi", metavar="NOME", help="relatório Markdown de uma AOI (documentação + roteiro de debug)")
+    ap.add_argument("--aoi-text", action="store_true", help="com --aoi: imprime o texto da AOI como o LLM recebe, em vez do relatório")
     ap.add_argument("--json", metavar="SAIDA.json", help="grava modelo + findings + métricas em JSON")
     args = ap.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252
@@ -85,11 +93,31 @@ def main(argv: List[str] | None = None) -> int:
         print(f"\n[~{sr.tokens} tokens]", file=sys.stderr)
     if args.tags:
         print(tag_sheet(ctrl, xref).text)
+    if args.aois:
+        rows = aoi_summary_rows(ctrl, xref, findings)
+        print(f"\n{len(rows)} AOIs")
+        print(f"{'aoi':<28} {'rev':<7} {'prot':<5} {'par':>4} {'loc':>4} {'inst':>5} {'cham':>5} {'err':>4} {'warn':>4} {'info':>4}  rotinas")
+        print("-" * 120)
+        for r in rows:
+            f = r["findings"]
+            print(f"{r['aoi'][:28]:<28} {r['revision'][:7]:<7} {'sim' if r['protected'] else '':<5} {r['parameters']:>4} {r['locals']:>4} {r['instances']:>5} {r['calls']:>5} {f.get('error', 0):>4} {f.get('warning', 0):>4} {f.get('info', 0):>4}  {r['routines']}")
+    if args.aoi:
+        try:
+            report = build_aoi_report(ctrl, args.aoi, xref, findings)
+        except KeyError as exc:
+            print(f"erro: {exc}", file=sys.stderr)
+            return 2
+        if args.aoi_text:
+            sr = aoi_text(ctrl, args.aoi, xref, report)
+            print(sr.text)
+            print(f"\n[~{sr.tokens} tokens]", file=sys.stderr)
+        else:
+            print(aoi_markdown(report))
     if args.json:
         with open(args.json, "w", encoding="utf-8") as fh:
             fh.write(to_json(ctrl, findings, metrics))
         print(f"JSON gravado em {args.json}", file=sys.stderr)
-    if not any((args.summary, args.findings, args.dump_routine, args.tags, args.json)):
+    if not any((args.summary, args.findings, args.dump_routine, args.tags, args.aois, args.aoi, args.json)):
         ov = project_overview(ctrl, findings, metrics)
         print(ov.text)
     return 0

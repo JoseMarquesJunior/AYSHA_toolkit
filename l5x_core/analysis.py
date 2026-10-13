@@ -6,7 +6,8 @@ Rules (ids used in Finding.rule):
   output_mixed_latch, timer_no_preset, jsr_missing_routine,
   rungs_without_comment, routine_no_description, routine_protected,
   aoi_protected, safety_content, unknown_instruction, unresolved_tags,
-  rung_parse_error (emitted by the parser).
+  rung_parse_error (emitted by the parser), plus the aoi_* rules of aoi.py
+  (all with program="aoi:<Name>").
 """
 
 from __future__ import annotations
@@ -14,9 +15,10 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Dict, List, Optional, Tuple
 
+from .aoi import aoi_findings
 from .model import Controller, Finding, Metrics, Program, Routine, Tag, SEVERITIES
 from .rung_text import TIMER_COUNTER
-from .xref import CrossRef, Usage, CONTROLLER
+from .xref import AOI_PREFIX, CrossRef, Usage, CONTROLLER
 
 AOI_ROUTINE_NAMES = {"logic", "prescan", "postscan", "enableinfalse"}
 _SEV_ORDER = {s: i for i, s in enumerate(SEVERITIES)}
@@ -242,7 +244,7 @@ def rule_protected(ctrl: Controller) -> List[Finding]:
                                    message=f"Rotina '{routine.name}' tem source protection (EncodedData): não analisável, conteúdo não lido."))
     for aoi in ctrl.aois:
         if aoi.protected:
-            out.append(Finding(rule="aoi_protected", severity="info", tag=aoi.name,
+            out.append(Finding(rule="aoi_protected", severity="info", program=f"{AOI_PREFIX}{aoi.name}", tag=aoi.name,
                                message=f"AOI '{aoi.name}' (rev. {aoi.revision or '?'}) tem source protection: não analisável, conteúdo não lido."))
     return out
 
@@ -286,7 +288,7 @@ def rule_unknown_and_unresolved(ctrl: Controller, xref: CrossRef) -> Tuple[List[
 # --------------------------------------------------------------------------
 # Metrics
 # --------------------------------------------------------------------------
-def compute_metrics(ctrl: Controller, findings: List[Finding], unknown: Dict[str, int]) -> Metrics:
+def compute_metrics(ctrl: Controller, findings: List[Finding], unknown: Dict[str, int], xref: Optional[CrossRef] = None) -> Metrics:
     m = Metrics()
     m.programs = len(ctrl.programs)
     m.tasks = len(ctrl.tasks)
@@ -294,6 +296,10 @@ def compute_metrics(ctrl: Controller, findings: List[Finding], unknown: Dict[str
     m.tags_program = sum(len(p.tags) for p in ctrl.programs)
     m.aois = len(ctrl.aois)
     m.aois_protected = sum(1 for a in ctrl.aois if a.protected)
+    m.aois_unused = sum(1 for f in findings if f.rule == "aoi_unused")
+    if xref is not None:
+        m.aoi_instances = sum(len(v) for v in xref.aoi_instances.values())
+        m.aoi_calls = sum(len(v) for v in xref.aoi_calls.values())
     m.udts = len(ctrl.data_types)
     m.modules = len(ctrl.modules)
     m.safety_programs = sum(1 for p in ctrl.programs if p.is_safety)
@@ -344,7 +350,8 @@ def analyze(ctrl: Controller, xref: Optional[CrossRef] = None) -> Tuple[List[Fin
     findings += rule_documentation(ctrl)
     extra, unknown = rule_unknown_and_unresolved(ctrl, xref)
     findings += extra
+    findings += aoi_findings(ctrl, xref)
     findings += list(ctrl.parse_findings)
     findings.sort(key=lambda f: (_SEV_ORDER.get(f.severity, 9), f.program or "", f.routine or "", f.rung if f.rung is not None else -1))
-    metrics = compute_metrics(ctrl, findings, unknown)
+    metrics = compute_metrics(ctrl, findings, unknown, xref)
     return findings, metrics

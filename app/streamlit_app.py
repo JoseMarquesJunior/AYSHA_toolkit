@@ -88,6 +88,19 @@ UI: Dict[str, Dict[str, str]] = {
         "mode_review": "Revisão",
         "mode_document": "Documentação",
         "mode_chat": "Chat",
+        "mode_aoi": "AOI",
+        "aoi_section": "AOIs (Add-On Instructions)",
+        "aoi_select": "AOI",
+        "aoi_none": "Este projeto não tem AOIs.",
+        "aoi_option": "{name} rev. {rev} · {instances} inst. · {calls} chamadas{protected}",
+        "aoi_protected_tag": " · protegida",
+        "aoi_summary": "{params} parâmetros · {locals} tags locais · rotinas: {routines} · instâncias: {instances} · chamadas: {calls} · findings: {findings}",
+        "aoi_report": "Relatório determinístico (grátis): documentação + roteiro de debug",
+        "aoi_download_report": "Baixar relatório (Markdown)",
+        "aoi_findings": "Findings do parser para esta AOI ({n})",
+        "aoi_analyze": "Analisar AOI com o modelo",
+        "aoi_protected_msg": "AOI protegida (source protection): o parser lista instâncias e chamadas, mas não há lógica para analisar.",
+        "aoi_help": "A análise pelo modelo usa a interface, os findings e as rotinas internas da AOI e devolve finalidade, comportamento, uso no projeto, riscos e um roteiro de debug.",
         "disclaimer": "Análise automática: validar com o engenheiro responsável antes de qualquer alteração.",
     },
     "en": {
@@ -145,6 +158,19 @@ UI: Dict[str, Dict[str, str]] = {
         "mode_review": "Review",
         "mode_document": "Documentation",
         "mode_chat": "Chat",
+        "mode_aoi": "AOI",
+        "aoi_section": "AOIs (Add-On Instructions)",
+        "aoi_select": "AOI",
+        "aoi_none": "This project has no AOIs.",
+        "aoi_option": "{name} rev. {rev} · {instances} inst. · {calls} calls{protected}",
+        "aoi_protected_tag": " · protected",
+        "aoi_summary": "{params} parameters · {locals} local tags · routines: {routines} · instances: {instances} · calls: {calls} · findings: {findings}",
+        "aoi_report": "Deterministic report (free): documentation + debug guide",
+        "aoi_download_report": "Download report (Markdown)",
+        "aoi_findings": "Parser findings for this AOI ({n})",
+        "aoi_analyze": "Analyze AOI with the model",
+        "aoi_protected_msg": "Source-protected AOI: the parser lists instances and calls, but there is no logic to analyze.",
+        "aoi_help": "The model analysis uses the AOI interface, findings and internal routines and returns purpose, behaviour, usage in the project, risks and a debug guide.",
         "disclaimer": "Automated analysis: validate with the responsible engineer before any change.",
     },
     "es": {
@@ -202,6 +228,19 @@ UI: Dict[str, Dict[str, str]] = {
         "mode_review": "Revisión",
         "mode_document": "Documentación",
         "mode_chat": "Chat",
+        "mode_aoi": "AOI",
+        "aoi_section": "AOIs (Add-On Instructions)",
+        "aoi_select": "AOI",
+        "aoi_none": "Este proyecto no tiene AOIs.",
+        "aoi_option": "{name} rev. {rev} · {instances} inst. · {calls} llamadas{protected}",
+        "aoi_protected_tag": " · protegida",
+        "aoi_summary": "{params} parámetros · {locals} tags locales · rutinas: {routines} · instancias: {instances} · llamadas: {calls} · findings: {findings}",
+        "aoi_report": "Informe determinístico (gratis): documentación + guía de debug",
+        "aoi_download_report": "Descargar informe (Markdown)",
+        "aoi_findings": "Findings del parser para esta AOI ({n})",
+        "aoi_analyze": "Analizar AOI con el modelo",
+        "aoi_protected_msg": "AOI protegida (source protection): el parser lista instancias y llamadas, pero no hay lógica para analizar.",
+        "aoi_help": "El análisis del modelo usa la interfaz, los findings y las rutinas internas de la AOI y devuelve finalidad, comportamiento, uso en el proyecto, riesgos y una guía de debug.",
         "disclaimer": "Análisis automático: validar con el ingeniero responsable antes de cualquier cambio.",
     },
 }
@@ -220,7 +259,7 @@ def t(key: str, **kw: Any) -> str:
 # Helpers (testáveis sem Streamlit)
 # ----------------------------------------------------------------------------
 def action_cost(mode: str, scope: str) -> int:
-    """Créditos por ação: documentação do projeto inteiro custa 3; o resto 1."""
+    """Créditos por ação: documentação do projeto inteiro custa 3; o resto (inclusive AOI) 1."""
     if mode == "document" and scope == "project":
         return DOC_PROJECT_COST
     return 1
@@ -340,9 +379,10 @@ def sidebar(store: CreditStore, ctx: Optional[ProjectContext]) -> None:
             st.error(t("safety_warning"))
 
 
-def findings_table(ctx: ProjectContext, program: Optional[str], routine: Optional[str]) -> None:
-    rows = ctx.findings_for(program, routine)
-    with st.expander(t("deterministic", n=len(rows)), expanded=False):
+def findings_table(ctx: ProjectContext, program: Optional[str], routine: Optional[str], rows: Optional[List[Any]] = None, title: Optional[str] = None) -> None:
+    if rows is None:
+        rows = ctx.findings_for(program, routine)
+    with st.expander(title or t("deterministic", n=len(rows)), expanded=False):
         if not rows:
             st.caption(t("no_findings"))
             return
@@ -352,7 +392,7 @@ def findings_table(ctx: ProjectContext, program: Optional[str], routine: Optiona
         )
 
 
-def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, program: Optional[str], routine: Optional[str]) -> None:
+def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, program: Optional[str], routine: Optional[str], aoi: Optional[str] = None) -> None:
     cost = action_cost(mode, scope)
     code = st.session_state["code"]
     balance = store.balance(code)
@@ -383,6 +423,9 @@ def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, p
                 r = routine if scope == "routine" else None
                 result = llm.review(ctx, p, r, lang, on_text=on_text)
                 title = f"{t('mode_review')}: " + (ctx.ctrl.name if scope == "project" else f"{program}" + (f"/{routine}" if r else ""))
+            elif mode == "aoi":
+                result = llm.aoi(ctx, aoi or "", lang, on_text=on_text)
+                title = f"{t('mode_aoi')}: {aoi}"
             else:
                 p = None if scope == "project" else program
                 result = llm.document(ctx, p, lang, on_text=on_text)
@@ -404,6 +447,37 @@ def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, p
         "refusal": result.refusal, "truncated": result.truncated,
     })
     st.rerun()
+
+
+def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
+    """Seção de AOIs: relatório determinístico (grátis) + análise pelo modelo (1 crédito)."""
+    st.subheader(t("aoi_section"))
+    rows = ctx.aoi_rows()
+    if not rows:
+        st.caption(t("aoi_none"))
+        return
+    by_name = {r["aoi"]: r for r in rows}
+
+    def label(name: str) -> str:
+        r = by_name[name]
+        return t("aoi_option", name=name, rev=r["revision"] or "?", instances=r["instances"], calls=r["calls"], protected=t("aoi_protected_tag") if r["protected"] else "")
+
+    name = st.selectbox(t("aoi_select"), list(by_name), format_func=label, key="sel_aoi")
+    row = by_name[name]
+    f = row["findings"]
+    st.caption(t("aoi_summary", params=row["parameters"], locals=row["locals"], routines=row["routines"] or "-", instances=row["instances"], calls=row["calls"],
+                  findings=" · ".join(f"{s}: {f.get(s, 0)}" for s in SEVERITIES)))
+    if row["protected"]:
+        st.info(t("aoi_protected_msg"))
+    with st.expander(t("aoi_report"), expanded=False):
+        md = ctx.aoi_markdown(name)
+        st.markdown(md)
+        st.download_button(t("aoi_download_report"), data=md.encode("utf-8"), file_name=f"{ctx.ctrl.name}_AOI_{name}.md".replace(" ", "_"), mime="text/markdown", key="dl_aoi_report")
+    aoi_findings = ctx.aoi_findings(name)
+    findings_table(ctx, None, None, rows=aoi_findings, title=t("aoi_findings", n=len(aoi_findings)))
+    cost = action_cost("aoi", "aoi")
+    if st.button(f"{t('aoi_analyze')} · {t('cost', n=cost)}", disabled=not llm_ok or row["protected"], help=t("aoi_help"), key="btn_aoi"):
+        run_action("aoi", "aoi", ctx, store, None, None, aoi=name)
 
 
 def results_area(ctx: ProjectContext) -> None:
@@ -539,6 +613,8 @@ def main_area(store: CreditStore) -> Optional[ProjectContext]:
     if b3.button(f"{t('document')} · {t('cost', n=cost_doc)}", disabled=not llm_ok, width="stretch"):
         run_action("document", "project" if scope == "project" else "program", ctx, store, program, routine)
 
+    st.divider()
+    aoi_area(ctx, store, llm_ok)
     results_area(ctx)
     st.divider()
     if llm_ok:

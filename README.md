@@ -175,6 +175,50 @@ samples/           projetos reais (ignorado pelo git)
 Métricas (`Metrics`): programas, rotinas por tipo, rungs, linhas ST, instruções, tags por escopo, AOIs
 (e protegidas), UDTs, módulos, tasks, maior rotina, profundidade máxima de ramos, % de rungs comentados.
 
+## Análise, documentação e debug de AOIs
+
+Função dedicada às Add-On Instructions, em três camadas:
+
+1. **Determinística (`l5x_core/aoi.py`, grátis).** Para cada AOI o parser agora reúne: metadados
+   (revisão, nota de revisão, texto de ajuda, datas, flags `ExecutePrescan/Postscan/EnableInFalse`),
+   parâmetros com `DefaultData` e `ExternalAccess`, tags locais com defaults, rotinas internas, **instâncias**
+   (tags do tipo da AOI em qualquer escopo, inclusive dentro de outras AOIs) e **pontos de chamada** em
+   RLL (operandos exatos), ST (regex, aproximado) e FBD (nó `AddOnInstruction` com os pinos fiados via
+   `Wire`/`InOutParameter`). Regras `aoi_*` (todas com `program="aoi:<Nome>"`):
+
+   | Regra | Severidade | O que detecta |
+   |---|---|---|
+   | `aoi_call_arity` | error | chamada RLL/ST com número de operandos diferente da definição |
+   | `aoi_param_unused` | warning / info | parâmetro nunca referenciado na lógica (warning se for operando da chamada) |
+   | `aoi_output_never_written` | warning | saída que a lógica nunca escreve (fica no default) |
+   | `aoi_input_written` | warning | entrada obrigatória sobrescrita pela lógica (perdida na próxima chamada) |
+   | `aoi_output_multiple_writes` | warning | OTE na mesma saída em vários rungs da mesma rotina |
+   | `aoi_instance_never_called` | info | instância referenciada (membro lido/escrito) mas nunca chamada |
+   | `aoi_unused` | info | AOI sem instâncias e sem chamadas |
+   | `aoi_local_unused` / `_write_only` / `_read_only` | info | tags locais mortas (ignora as expostas ao HMI por `ExternalAccess`) |
+   | `aoi_no_enableinfalse` | info | tem saídas e não executa EnableInFalse (saídas congelam com EnableIn falso) |
+   | `aoi_no_description` / `aoi_params_no_description` | info | documentação ausente |
+   | `aoi_unresolved_tags` | info | referência a tag que não é parâmetro nem local |
+   | `aoi_nested_protected` | info | chama uma AOI protegida |
+
+   `aoi_markdown()` gera um documento Markdown completo (interface, tags locais, lógica, instâncias,
+   pontos de chamada com a fiação, findings e um **roteiro de debug** estático: onde cada saída é decidida,
+   o que cada entrada alimenta, timers com preset, efeito de EnableIn falso, checklist por instância).
+2. **LLM (`app/llm.py`, modo `aoi`, 1 crédito, modelo `MODEL_DEEP`).** Recebe a interface, os findings e as
+   rotinas internas (map-reduce quando a AOI é grande) e responde com finalidade, interface comentada,
+   comportamento rung a rung, uso no projeto, riscos e roteiro de debug (`app/prompts/aoi.md`).
+   O chat também passa a recuperar as rotinas internas de uma AOI citada pelo nome ou por uma instância.
+3. **Interface.** Seção *AOIs* no Streamlit: seletor, resumo, relatório determinístico com download,
+   findings da AOI e botão **Analisar AOI com o modelo**.
+
+```bash
+python -m l5x_core.cli projeto.L5X --aois                 # tabela: parâmetros, instâncias, chamadas, findings
+python -m l5x_core.cli projeto.L5X --aoi P_Alarm           # relatório Markdown (documentação + debug)
+python -m l5x_core.cli projeto.L5X --aoi P_Alarm --aoi-text   # texto que o modelo recebe
+python -m l5x_core.cli projeto.L5X --dump-routine aoi:P_Alarm/Logic
+python -m app.llm projeto.L5X --mode aoi --target P_Alarm  # requer chave de API
+```
+
 ## Diferenças observadas em relação à especificação (PROMPT)
 
 Confirmadas nos dois L5X de exemplo (Studio 5000 v35):

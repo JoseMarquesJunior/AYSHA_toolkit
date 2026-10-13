@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="AOITEST" TargetType="Controller" ContainsContext="false" ExportDate="Tue Oct 13 10:00:00 2026" ExportOptions="NoRawData L5KData DecoratedData">
+<Controller Use="Target" Name="AOITEST" ProcessorType="1756-L85E" MajorRev="35" MinorRev="11">
+<Description><![CDATA[Projeto sintético para testes de AOIs do l5x_core]]></Description>
+<DataTypes/>
+<Modules>
+<Module Name="Local" CatalogNumber="1756-L85E" Vendor="1" ProductType="14" ProductCode="168" Major="35" Minor="11" ParentModule="Local" ParentModPortId="1" Inhibited="false" MajorFault="true"/>
+</Modules>
+<AddOnInstructionDefinitions>
+<AddOnInstructionDefinition Name="Valve" Revision="2.1" Vendor="Test" ExecutePrescan="true" ExecutePostscan="false" ExecuteEnableInFalse="true" CreatedDate="2024-01-02T10:00:00.000Z" CreatedBy="tester" EditedDate="2026-03-04T11:00:00.000Z" EditedBy="tester" SoftwareRevision="v35.00">
+<Description><![CDATA[Válvula on/off com supervisão de curso]]></Description>
+<RevisionNote><![CDATA[2.1 - adicionada falha de curso]]></RevisionNote>
+<AdditionalHelpText><![CDATA[Comanda a válvula e supervisiona o tempo de curso.]]></AdditionalHelpText>
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+<Parameter Name="Cmd_Open" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read/Write">
+<Description><![CDATA[Comando de abertura]]></Description>
+<DefaultData Format="L5K"><![CDATA[0]]></DefaultData>
+<DefaultData Format="Decorated">
+<DataValue DataType="BOOL" Radix="Decimal" Value="0"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Fbk_Open" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description><![CDATA[Fim de curso aberto]]></Description>
+</Parameter>
+<Parameter Name="Cfg_TravelT" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Tempo de curso (ms)]]></Description>
+<DefaultData Format="Decorated">
+<DataValue DataType="DINT" Radix="Decimal" Value="5000"/>
+</DefaultData>
+</Parameter>
+<Parameter Name="Out_Open" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read Only">
+<Description><![CDATA[Saída para solenoide]]></Description>
+</Parameter>
+<Parameter Name="Sts_Fault" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read Only">
+<Description><![CDATA[Falha de curso]]></Description>
+</Parameter>
+<Parameter Name="Ref_Cfg" TagType="Base" DataType="DINT" Usage="InOut" Radix="Decimal" Required="true" Visible="true"/>
+<Parameter Name="Spare_In" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true" ExternalAccess="Read/Write"/>
+<Parameter Name="Out_Never" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true" ExternalAccess="Read Only"/>
+<Parameter Name="Inp_Written" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="true" Visible="true" ExternalAccess="Read/Write"/>
+</Parameters>
+<LocalTags>
+<LocalTag Name="Wrk_T" DataType="TIMER" ExternalAccess="None">
+<Description><![CDATA[Timer de curso]]></Description>
+<DefaultData Format="Decorated">
+<Structure DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="5000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</Structure>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="Wrk_Unused" DataType="DINT" ExternalAccess="None"/>
+<LocalTag Name="Wrk_Bit" DataType="BOOL" ExternalAccess="None"/>
+<LocalTag Name="Sts_HMI" DataType="DINT" ExternalAccess="Read Only">
+<Description><![CDATA[Status para o HMI]]></Description>
+</LocalTag>
+<LocalTag Name="Wrk_Const" DataType="REAL" ExternalAccess="None">
+<DefaultData Format="Decorated">
+<DataValue DataType="REAL" Radix="Float" Value="1.5"/>
+</DefaultData>
+</LocalTag>
+<LocalTag Name="Cfg_HMI" DataType="REAL" ExternalAccess="Read/Write"/>
+<LocalTag Name="Wrk_Scaled" DataType="REAL" ExternalAccess="Read Only"/>
+<LocalTag Name="Wrk_Scl" DataType="Scaler" ExternalAccess="None"/>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Comment><![CDATA[Comando da válvula]]></Comment>
+<Text><![CDATA[XIC(Cmd_Open)XIO(Sts_Fault)OTE(Out_Open);]]></Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text><![CDATA[XIC(Out_Open)XIO(Fbk_Open)TON(Wrk_T,?,?);]]></Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text><![CDATA[XIC(Wrk_T.DN)OTE(Sts_Fault);]]></Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text><![CDATA[MOV(Cfg_TravelT,Wrk_T.PRE)MOV(Ref_Cfg,Sts_HMI)MUL(Wrk_Const,2.0,Inp_Written)MOV(Cfg_HMI,Ref_Cfg);]]></Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text><![CDATA[XIC(Cmd_Open)XIC(Ghost)OTE(Sts_Fault);]]></Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text><![CDATA[XIC(Out_Never)OTE(Wrk_Bit);]]></Text>
+</Rung>
+<Rung Number="6" Type="N">
+<Text><![CDATA[Scaler(Wrk_Scl,Wrk_Const,Wrk_Scaled);]]></Text>
+</Rung>
+</RLLContent>
+</Routine>
+<Routine Name="Prescan" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text><![CDATA[OTU(Out_Open)CLR(Inp_Written);]]></Text>
+</Rung>
+</RLLContent>
+</Routine>
+<Routine Name="EnableInFalse" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text><![CDATA[OTU(Out_Open)OTU(Sts_Fault);]]></Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+<AddOnInstructionDefinition Name="Scaler" Revision="1.0" Vendor="Test" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+<Parameter Name="In" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="true" Visible="true" ExternalAccess="Read/Write">
+<Description><![CDATA[Entrada bruta]]></Description>
+</Parameter>
+<Parameter Name="Out" TagType="Base" DataType="REAL" Usage="Output" Radix="Float" Required="true" Visible="true" ExternalAccess="Read Only">
+<Description><![CDATA[Saída escalonada]]></Description>
+</Parameter>
+</Parameters>
+<LocalTags/>
+<Routines>
+<Routine Name="Logic" Type="ST">
+<STContent>
+<Line Number="0"><![CDATA[// escala simples]]></Line>
+<Line Number="1"><![CDATA[Out := In * 2.0;]]></Line>
+</STContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+<AddOnInstructionDefinition Name="Orphan" Revision="1.0" Vendor="Test" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+<Description><![CDATA[AOI definida e nunca usada]]></Description>
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only"/>
+</Parameters>
+<LocalTags>
+<LocalTag Name="Wrk_Lk" DataType="Locked" ExternalAccess="None"/>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N">
+<Text><![CDATA[XIC(EnableIn)Locked(Wrk_Lk)OTE(EnableOut);]]></Text>
+</Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+<EncodedData EncodedType="AddOnInstructionDefinition" Name="Locked" Revision="1.0" Vendor="Vendor" EditedDate="2024-01-01T00:00:00.000Z" SoftwareRevision="v35.00" EncryptionConfig="9">QUJDRA==</EncodedData>
+</AddOnInstructionDefinitions>
+<Tags>
+<Tag Name="XV1" TagType="Base" DataType="Valve" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Válvula 1]]></Description>
+</Tag>
+<Tag Name="XV2" TagType="Base" DataType="Valve" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="XV3" TagType="Base" DataType="Valve" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="XV_Arr" TagType="Base" DataType="Valve" Dimensions="2" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Scl1" TagType="Base" DataType="Scaler" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Lk1" TagType="Base" DataType="Locked" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Fbk1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Out1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Cfg1" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Spare1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="RawA" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="SclOut" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Fault1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="Cmd2" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
+</Tags>
+<Programs>
+<Program Name="Main" TestEdits="false" MainRoutineName="MainRoutine" Disabled="false" UseAsFolder="false">
+<Tags>
+<Tag Name="Scl2" TagType="Base" DataType="Scaler" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="LocalIn" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"/>
+</Tags>
+<Routines>
+<Routine Name="MainRoutine" Type="RLL">
+<Description><![CDATA[Chama as AOIs]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N">
+<Comment><![CDATA[Válvula 1 em ladder]]></Comment>
+<Text><![CDATA[Valve(XV1,Fbk1,Out1,Cfg1,Spare1,RawA);]]></Text>
+</Rung>
+<Rung Number="1" Type="N">
+<Text><![CDATA[Valve(XV_Arr[0],Fbk1,Out1);]]></Text>
+</Rung>
+<Rung Number="2" Type="N">
+<Text><![CDATA[Locked(Lk1);]]></Text>
+</Rung>
+<Rung Number="3" Type="N">
+<Text><![CDATA[JSR(StRoutine,0);]]></Text>
+</Rung>
+<Rung Number="4" Type="N">
+<Text><![CDATA[JSR(FbdRoutine,0);]]></Text>
+</Rung>
+<Rung Number="5" Type="N">
+<Text><![CDATA[XIC(XV1.Sts_Fault)XIC(XV3.Sts_Fault)OTE(Fault1);]]></Text>
+</Rung>
+</RLLContent>
+</Routine>
+<Routine Name="StRoutine" Type="ST">
+<STContent>
+<Line Number="0"><![CDATA[Scaler(Scl1, RawA, SclOut);]]></Line>
+<Line Number="1"><![CDATA[Valve(XV_Arr[1], Fbk1, Out1, Cfg1, Spare1, RawA);]]></Line>
+<Line Number="2"><![CDATA[Scl2.In := LocalIn;]]></Line>
+</STContent>
+</Routine>
+<Routine Name="FbdRoutine" Type="FBD">
+<FBDContent SheetSize="Letter - 8.5 x 11 in" SheetOrientation="Landscape">
+<Sheet Number="1">
+<IRef ID="0" X="100" Y="100" Operand="RawA" HideDesc="false"/>
+<AddOnInstruction Name="Scaler" ID="1" X="300" Y="100" Operand="Scl2" VisiblePins="In Out"/>
+<ORef ID="2" X="500" Y="100" Operand="SclOut" HideDesc="false"/>
+<Wire FromID="0" ToID="1" ToParam="In"/>
+<Wire FromID="1" FromParam="Out" ToID="2"/>
+<IRef ID="4" X="100" Y="300" Operand="Cmd2" HideDesc="false"/>
+<AddOnInstruction Name="Valve" ID="3" X="300" Y="300" Operand="XV1" VisiblePins="Cmd_Open Fbk_Open Out_Open Sts_Fault">
+<InOutParameter Name="Ref_Cfg" Argument="Cfg1"/>
+</AddOnInstruction>
+<ORef ID="5" X="500" Y="300" Operand="Out1" HideDesc="false"/>
+<ORef ID="6" X="500" Y="340" Operand="Fault1" HideDesc="false"/>
+<Wire FromID="4" ToID="3" ToParam="Cmd_Open"/>
+<Wire FromID="3" FromParam="Out_Open" ToID="5"/>
+<Wire FromID="3" FromParam="Sts_Fault" ToID="6"/>
+</Sheet>
+</FBDContent>
+</Routine>
+</Routines>
+</Program>
+</Programs>
+<Tasks>
+<Task Name="MainTask" Type="CONTINUOUS" Priority="10" Watchdog="500" DisableUpdateOutputs="false" InhibitTask="false">
+<ScheduledPrograms>
+<ScheduledProgram Name="Main"/>
+</ScheduledPrograms>
+</Task>
+</Tasks>
+</Controller>
+</RSLogix5000Content>

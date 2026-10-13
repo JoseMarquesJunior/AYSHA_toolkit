@@ -8,6 +8,7 @@ Uso típico:
     result = llm.explain(ctx, "MainProgram", "MainRoutine")
     result = llm.review(ctx)                   # projeto inteiro (map-reduce)
     result = llm.document(ctx, program="MainProgram")
+    result = llm.aoi(ctx, "P_Alarm")                 # análise + documentação + roteiro de debug de uma AOI
     result = llm.chat(ctx, history, "o que liga o motor M1?")
 
 Nada do XML cru chega ao modelo: só o índice produzido por l5x_core.serialize.
@@ -32,10 +33,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 from l5x_core.analysis import analyze
+from l5x_core.aoi import AoiReport, aoi_markdown, aoi_summary_rows, build_aoi_report
 from l5x_core.model import Controller, Finding, Metrics, SEVERITIES
 from l5x_core.rung_text import TIMER_COUNTER
-from l5x_core.serialize import Serialized, estimate_tokens, project_overview, routine_text
-from l5x_core.xref import CrossRef, build_xref
+from l5x_core.serialize import Serialized, aoi_interface_text, estimate_tokens, project_overview, routine_text
+from l5x_core.xref import AOI_PREFIX, CrossRef, build_xref
 
 from app import retrieval
 
@@ -47,8 +49,8 @@ LANGUAGES: Dict[str, str] = {
     "es": "español",
 }
 
-MODES = ("explain", "review", "document", "chat")
-DEEP_MODES = {"review", "document"}
+MODES = ("explain", "review", "document", "chat", "aoi")
+DEEP_MODES = {"review", "document", "aoi"}
 
 # ----------------------------------------------------------------------------
 # Errors
@@ -167,15 +169,46 @@ class ProjectContext:
         self._routine_cache: Dict[Tuple[str, str], Serialized] = {}
         self._word_index: Optional[Dict[Tuple[str, str], Set[str]]] = None
         self._desc_index: Dict[Tuple[str, str], Set[str]] = {}
+        self._aoi_reports: Dict[str, AoiReport] = {}
 
     # ---- routines ----------------------------------------------------------
     def routine_text(self, program: str, routine: str) -> Serialized:
+        """``program`` = nome do programa ou ``aoi:<Nome>`` (rotina interna de AOI)."""
         key = (program.lower(), routine.lower())
         sr = self._routine_cache.get(key)
         if sr is None:
             sr = routine_text(self.ctrl, program, routine, self.xref)
             self._routine_cache[key] = sr
         return sr
+
+    # ---- AOIs ---------------------------------------------------------------
+    def aoi_names(self) -> List[str]:
+        return [a.name for a in self.ctrl.aois]
+
+    def aoi_report(self, name: str) -> AoiReport:
+        """Relatório determinístico da AOI (cacheado); KeyError se não existir."""
+        key = name.lower()
+        rep = self._aoi_reports.get(key)
+        if rep is None:
+            rep = build_aoi_report(self.ctrl, name, self.xref, self.findings)
+            self._aoi_reports[key] = rep
+        return rep
+
+    def aoi_markdown(self, name: str) -> str:
+        """Documentação + roteiro de debug da AOI gerados só pelo parser (sem custo de LLM)."""
+        return aoi_markdown(self.aoi_report(name))
+
+    def aoi_rows(self) -> List[Dict[str, Any]]:
+        return aoi_summary_rows(self.ctrl, self.xref, self.findings)
+
+    def aoi_findings(self, name: str) -> List[Finding]:
+        return list(self.aoi_report(name).findings)
+
+    def aoi_routines(self, name: str) -> List[Tuple[str, str]]:
+        """Rotinas analisáveis da AOI como unidades (``aoi:<Nome>``, rotina)."""
+        rep = self.aoi_report(name)
+        scope = f"{AOI_PREFIX}{rep.aoi.name}"
+        return [(scope, r.name) for r in rep.aoi.routines if r.analyzed]
 
     def analyzed_routines(self, program: Optional[str] = None) -> List[Tuple[str, str]]:
         """Rotinas com conteúdo analisável (RLL/ST não protegidas), na ordem do projeto."""
@@ -484,6 +517,33 @@ class LLMClient:
             partials.append(self._call(mode, ctx, user, language, None))
         return self._reduce(mode, ctx, target, partials, language, on_text)
 
+    def aoi(self, ctx: ProjectContext, name: str, language: Optional[str] = None, on_text: OnText = None) -> LLMResult:
+        """Análise + documentação + roteiro de debug de uma AOI: interface e uso no projeto
+        (parser), findings da AOI e rotinas internas; map-reduce se a AOI for grande."""
+        mode = "aoi"
+        try:
+            rep = ctx.aoi_report(name)
+        except KeyError as exc:
+            raise LLMError(str(exc), kind="api") from exc
+        aoi = rep.aoi
+        if aoi.protected:
+            raise LLMError(f"AOI '{aoi.name}' tem source protection: não há conteúdo para analisar (só instâncias e chamadas, veja o relatório determinístico).", kind="api")
+        interface = aoi_interface_text(ctx.ctrl, aoi.name, ctx.xref, rep).text
+        findings_txt = ctx.findings_text(rep.findings, limit=60)
+        fixed = estimate_tokens(interface) + estimate_tokens(findings_txt)
+        budget = max(500, self.budget_for_content(ctx, language) - fixed)
+        units = ctx.aoi_routines(aoi.name)
+        chunks = self._pack_units(ctx, units, budget) if units else ["(a AOI não tem rotinas ladder/ST analisáveis; documente a partir da interface e das chamadas)"]
+        template = self.prompt("aoi")
+        if len(chunks) == 1:
+            user = render(template, target=aoi.name, interface=interface, findings=findings_txt, content=chunks[0])
+            return self._call(mode, ctx, user, language, on_text)
+        partials: List[LLMResult] = []
+        for i, chunk in enumerate(chunks, 1):
+            user = render(template, target=f"{aoi.name} — parte {i}/{len(chunks)}", interface=interface, findings=findings_txt, content=chunk)
+            partials.append(self._call(mode, ctx, user, language, None))
+        return self._reduce(mode, ctx, f"AOI {aoi.name}", partials, language, on_text)
+
     def chat(self, ctx: ProjectContext, history: Sequence[Dict[str, str]], question: str, language: Optional[str] = None, on_text: OnText = None, max_routines: int = 8) -> LLMResult:
         """Pergunta livre. ``history`` = [{"role": "user"|"assistant", "content": texto}, ...]
         com as perguntas e respostas anteriores (sem as rotinas recuperadas, que são
@@ -748,7 +808,7 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - requer 
     ap = argparse.ArgumentParser(prog="app.llm", description="Chama o modelo sobre um L5X (requer ANTHROPIC_API_KEY e MODEL_*).")
     ap.add_argument("file")
     ap.add_argument("--mode", choices=MODES, default="explain")
-    ap.add_argument("--target", help="PROGRAMA ou PROGRAMA/ROTINA")
+    ap.add_argument("--target", help="PROGRAMA ou PROGRAMA/ROTINA (modo aoi: NOME_DA_AOI)")
     ap.add_argument("--question", help="pergunta (modo chat)")
     ap.add_argument("--lang", choices=sorted(LANGUAGES), default=None)
     args = ap.parse_args(argv)
@@ -783,6 +843,11 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - requer 
             r = llm.review(ctx, program, routine, args.lang, on_text=echo)
         elif args.mode == "document":
             r = llm.document(ctx, program, args.lang, on_text=echo)
+        elif args.mode == "aoi":
+            if not args.target:
+                print("erro: --target NOME_DA_AOI", file=sys.stderr)
+                return 2
+            r = llm.aoi(ctx, args.target, args.lang, on_text=echo)
         else:
             if not args.question:
                 print("erro: --question", file=sys.stderr)

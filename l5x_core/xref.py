@@ -13,10 +13,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from .model import Controller, Program, Routine, Tag, NONE, READ, WRITE, READWRITE
+from .model import AoiCall, Controller, Program, Routine, Tag, NONE, READ, WRITE, READWRITE
 from .rung_text import split_tag_path
 
 CONTROLLER = "controller"
+AOI_PREFIX = "aoi:"
 
 
 def tag_key(scope: str, name: str) -> str:
@@ -48,8 +49,23 @@ class Usage:
 
 
 @dataclass
+class AoiCallSite:
+    """An AOI call located in the project: where, and which instance tag it resolved to."""
+
+    scope: str  # program name or "aoi:Name"
+    routine: str
+    call: AoiCall
+    instance_tag: Optional[Tag] = None
+
+    def where(self) -> str:
+        return f"{self.scope} / {self.routine} / {self.call.location}"
+
+
+@dataclass
 class CrossRef:
     tags: Dict[str, Tag] = field(default_factory=dict)  # key -> Tag
+    aoi_instances: Dict[str, List[Tag]] = field(default_factory=lambda: defaultdict(list))  # lower AOI name -> instance tags
+    aoi_calls: Dict[str, List[AoiCallSite]] = field(default_factory=lambda: defaultdict(list))  # lower AOI name -> call sites
     usages: Dict[str, List[Usage]] = field(default_factory=lambda: defaultdict(list))
     io_usages: Dict[str, List[Usage]] = field(default_factory=lambda: defaultdict(list))  # module name -> usages
     unresolved: Dict[Tuple[str, str], List[str]] = field(default_factory=lambda: defaultdict(list))  # (scope, routine) -> names
@@ -78,6 +94,16 @@ class CrossRef:
 
     def callers_of(self, program: str, routine: str) -> List[Tuple[str, str]]:
         return self.callers.get((program, routine.lower()), [])
+
+    def instances_of(self, aoi: str) -> List[Tag]:
+        return self.aoi_instances.get(aoi.lower(), [])
+
+    def calls_of(self, aoi: str) -> List[AoiCallSite]:
+        return self.aoi_calls.get(aoi.lower(), [])
+
+    def calls_of_instance(self, tag: Tag) -> List[AoiCallSite]:
+        key = tag_key(tag.scope, tag.name)
+        return [s for s in self.aoi_calls.get(tag.data_type.lower(), []) if s.instance_tag is not None and tag_key(s.instance_tag.scope, s.instance_tag.name) == key]
 
     # ---- recording -------------------------------------------------------
     def _record(self, scope: str, base: str, program: Optional[str], usage: Usage, routine: str) -> None:
@@ -143,6 +169,24 @@ def _index_routine(scope: str, routine: Routine, xref: CrossRef) -> None:
         xref._record(scope, ref.tag_base, ref.program, usage, routine.name)
 
 
+def _index_aoi_calls(scope: str, routine: Routine, xref: CrossRef) -> None:
+    for call in routine.aoi_calls:
+        inst: Optional[Tag] = None
+        base = call.instance_base
+        if base and ":" not in base:
+            inst = xref.resolve(scope, base, call.instance_program)
+        xref.aoi_calls[call.aoi.lower()].append(AoiCallSite(scope=scope, routine=routine.name, call=call, instance_tag=inst))
+
+
+def _index_aoi_instances(ctrl: Controller, xref: CrossRef) -> None:
+    names = {a.name.lower() for a in ctrl.aois}
+    if not names:
+        return
+    for tag in xref.tags.values():
+        if tag.data_type.lower() in names and (tag.usage or "").lower() not in ("input", "output", "inout"):
+            xref.aoi_instances[tag.data_type.lower()].append(tag)
+
+
 def _index_calls(prog: Program, xref: CrossRef) -> None:
     names = {r.name.lower(): r.name for r in prog.routines}
     for routine in prog.routines:
@@ -160,11 +204,14 @@ def build_xref(ctrl: Controller) -> CrossRef:
     xref = CrossRef()
     xref.modules = {m.name.lower(): m.name for m in ctrl.modules}
     _index_tags(ctrl, xref)
+    _index_aoi_instances(ctrl, xref)
     for prog in ctrl.programs:
         for routine in prog.routines:
             _index_routine(prog.name, routine, xref)
+            _index_aoi_calls(prog.name, routine, xref)
         _index_calls(prog, xref)
     for aoi in ctrl.aois:
         for routine in aoi.routines:
-            _index_routine(f"aoi:{aoi.name}", routine, xref)
+            _index_routine(f"{AOI_PREFIX}{aoi.name}", routine, xref)
+            _index_aoi_calls(f"{AOI_PREFIX}{aoi.name}", routine, xref)
     return xref

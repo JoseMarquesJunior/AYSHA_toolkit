@@ -78,6 +78,40 @@ class TagRef:
 
 
 @dataclass
+class AoiCall:
+    """One call of an Add-On Instruction found in a routine (any language)."""
+
+    aoi: str  # AOI name as written in the code
+    instance: Optional[str]  # backing (instance) tag path as written
+    location: str  # "rung 3" | "line 12" | "sheet 1"
+    source: str  # "rll" | "st" | "fbd"
+    arguments: List[str] = field(default_factory=list)  # positional operands after the instance (RLL/ST)
+    pins: Dict[str, str] = field(default_factory=dict)  # FBD: parameter -> wired operand / InOut argument
+    rung: Optional[int] = None
+
+    @property
+    def instance_program(self) -> Optional[str]:
+        """Program of a cross-program instance reference (``\\Prog.Tag``), else None."""
+        path = (self.instance or "").strip()
+        if path.startswith("\\") and "." in path:
+            return path[1:].split(".", 1)[0]
+        return None
+
+    @property
+    def instance_base(self) -> Optional[str]:
+        """Base tag name of the instance (``Arr[2].X`` -> ``Arr``)."""
+        path = (self.instance or "").strip()
+        if not path:
+            return None
+        if path.startswith("\\"):
+            path = path[1:].split(".", 1)[1] if "." in path else path[1:]
+        for sep in (".", "["):
+            if sep in path:
+                path = path.split(sep, 1)[0]
+        return path
+
+
+@dataclass
 class Routine:
     name: str
     type: str  # RLL | ST | FBD | SFC | other
@@ -87,6 +121,7 @@ class Routine:
     st_lines: List[STLine] = field(default_factory=list)
     tag_refs: List[TagRef] = field(default_factory=list)  # approximate refs (ST/FBD/SFC)
     calls: List[str] = field(default_factory=list)  # JSR / FOR targets (routine names)
+    aoi_calls: List[AoiCall] = field(default_factory=list)  # AOI invocations (RLL exact, ST/FBD approximate)
     size: int = 0  # rungs, lines or graphic nodes depending on type
     sheets: int = 0  # FBD only
 
@@ -107,7 +142,16 @@ class Tag:
     class_: Optional[str] = None  # "Standard" | "Safety" | None
     usage: Optional[str] = None  # program parameters / AOI params: Input | Output | InOut | Public | Local
     constant: bool = False
-    values: Optional[Dict[str, Any]] = None  # decorated values (kept only for timer/counter bearing tags)
+    values: Optional[Dict[str, Any]] = None  # decorated values (timer/counter bearing tags; all AOI locals/params)
+    external_access: Optional[str] = None  # "Read/Write" | "Read Only" | "None" (HMI visibility)
+
+    @property
+    def hmi_readable(self) -> bool:
+        return (self.external_access or "None").lower() != "none"
+
+    @property
+    def hmi_writable(self) -> bool:
+        return (self.external_access or "").lower() == "read/write"
 
     @property
     def is_io(self) -> bool:
@@ -144,6 +188,13 @@ class AoiParameter:
     required: bool = False
     visible: bool = False
     description: Optional[str] = None
+    default: Optional[Any] = None  # decorated DefaultData (scalars, or nested dict for structures)
+    external_access: Optional[str] = None
+
+    @property
+    def is_system(self) -> bool:
+        """EnableIn / EnableOut are created by Logix, not by the author."""
+        return self.name.lower() in ("enablein", "enableout")
 
 
 @dataclass
@@ -157,11 +208,46 @@ class Aoi:
     local_tags: List[Tag] = field(default_factory=list)
     routines: List[Routine] = field(default_factory=list)
     class_: Optional[str] = None
+    execute_prescan: bool = False
+    execute_postscan: bool = False
+    execute_enableinfalse: bool = False
+    created_date: Optional[str] = None
+    edited_date: Optional[str] = None
+    software_revision: Optional[str] = None
+    revision_note: Optional[str] = None
+    help_text: Optional[str] = None  # AdditionalHelpText
 
     @property
     def call_parameters(self) -> List[AoiParameter]:
         """Parameters that appear as operands in a rung call (Required or InOut)."""
         return [p for p in self.parameters if p.required or p.usage == "InOut"]
+
+    @property
+    def user_parameters(self) -> List[AoiParameter]:
+        """Parameters defined by the author (without EnableIn / EnableOut)."""
+        return [p for p in self.parameters if not p.is_system]
+
+    @property
+    def is_safety(self) -> bool:
+        return (self.class_ or "").lower() == "safety"
+
+    @property
+    def analyzable(self) -> bool:
+        return not self.protected and any(r.analyzed for r in self.routines)
+
+    def routine(self, name: str) -> Optional[Routine]:
+        low = name.lower()
+        for r in self.routines:
+            if r.name.lower() == low:
+                return r
+        return None
+
+    def parameter(self, name: str) -> Optional[AoiParameter]:
+        low = name.lower()
+        for p in self.parameters:
+            if p.name.lower() == low:
+                return p
+        return None
 
 
 @dataclass
@@ -243,6 +329,9 @@ class Metrics:
     tags_program: int = 0
     aois: int = 0
     aois_protected: int = 0
+    aois_unused: int = 0  # defined but never instantiated nor called
+    aoi_instances: int = 0  # tags whose data type is an AOI
+    aoi_calls: int = 0  # call sites (RLL exact; ST/FBD approximate)
     udts: int = 0
     modules: int = 0
     tasks: int = 0

@@ -10,8 +10,9 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
 
+from .aoi import AoiReport, build_aoi_report, format_value, instance_counts
 from .model import Controller, Finding, Metrics, Program, Routine, Tag, SEVERITIES
-from .xref import CrossRef, build_xref
+from .xref import AOI_PREFIX, CrossRef, build_xref
 
 CHARS_PER_TOKEN = 3.5
 
@@ -92,10 +93,12 @@ def project_overview(ctrl: Controller, findings: List[Finding], metrics: Metrics
             add(f"  - {r.name} [{r.type}, {_routine_size(r)}]{desc}")
     add("")
     add("## AOIs")
+    inst_counts = instance_counts(ctrl)
     for a in ctrl.aois:
         prot = " [PROTEGIDA]" if a.protected else ""
         params = ", ".join(f"{pp.name}:{pp.usage[0]}" for pp in a.call_parameters)
-        add(f"- {a.name} rev. {a.revision or '?'}{prot} ({len(a.routines)} rotinas; operandos: {params or 'só tag de instância'}){(' — ' + _s(a.description, 80)) if a.description else ''}")
+        n_inst = inst_counts.get(a.name.lower(), 0)
+        add(f"- {a.name} rev. {a.revision or '?'}{prot} ({len(a.routines)} rotinas; {n_inst} instâncias; operandos: {params or 'só tag de instância'}){(' — ' + _s(a.description, 80)) if a.description else ''}")
     add("")
     add("## UDTs")
     for d in ctrl.data_types:
@@ -176,18 +179,34 @@ def _shrink_overview(lines: List[str], max_tokens: int) -> str:
 # --------------------------------------------------------------------------
 # Routine text
 # --------------------------------------------------------------------------
-def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[CrossRef] = None) -> Serialized:
+def _locate_routine(ctrl: Controller, program: str, routine: str) -> Tuple[str, Routine, bool]:
+    """(scope name, Routine, is_safety). ``program`` may be ``aoi:<Name>`` for an AOI routine."""
+    if program.lower().startswith(AOI_PREFIX):
+        name = program[len(AOI_PREFIX):]
+        aoi = ctrl.aoi(name)
+        if aoi is None:
+            raise KeyError(f"AOI '{name}' não encontrada")
+        rt = aoi.routine(routine)
+        if rt is None:
+            raise KeyError(f"rotina '{routine}' não encontrada na AOI '{aoi.name}'")
+        return f"{AOI_PREFIX}{aoi.name}", rt, aoi.is_safety
     prog = ctrl.program(program)
     if prog is None:
         raise KeyError(f"programa '{program}' não encontrado")
     rt = prog.routine(routine)
     if rt is None:
         raise KeyError(f"rotina '{routine}' não encontrada no programa '{program}'")
+    return prog.name, rt, prog.is_safety
+
+
+def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[CrossRef] = None) -> Serialized:
+    """Text of one routine for the model. ``program`` = program name or ``aoi:<Name>``."""
+    scope, rt, safety = _locate_routine(ctrl, program, routine)
     xref = xref or build_xref(ctrl)
     lines: List[str] = []
     add = lines.append
-    header = f"# {prog.name} / {rt.name} [{rt.type}]"
-    if prog.is_safety:
+    header = f"# {scope} / {rt.name} [{rt.type}]"
+    if safety:
         header += " [SAFETY — somente leitura]"
     add(header)
     if rt.description:
@@ -198,9 +217,11 @@ def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[Cr
         return Serialized(text=text, tokens=estimate_tokens(text))
     if rt.calls:
         add(f"Chama: {', '.join(dict.fromkeys(rt.calls))}")
-    callers = xref.callers_of(prog.name, rt.name)
+    callers = xref.callers_of(scope, rt.name)
     if callers:
         add(f"Chamada por: {', '.join(f'{p}/{r}' for p, r in callers)}")
+    if rt.aoi_calls:
+        add("Chama AOIs: " + ", ".join(dict.fromkeys(f"{c.aoi}({c.instance or '?'})" for c in rt.aoi_calls)))
     add("")
     used: Dict[str, Tag] = {}
     io_refs: List[str] = []
@@ -211,7 +232,7 @@ def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[Cr
         if ":" in base:
             io_refs.append(base)
             return
-        tag = xref.resolve(prog.name, base, program_ref)
+        tag = xref.resolve(scope, base, program_ref)
         if tag is not None:
             used.setdefault(f"{tag.scope}|{tag.name}".lower(), tag)
 
@@ -247,15 +268,127 @@ def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[Cr
     add("")
     add("## Tags usadas nesta rotina")
     for tag in sorted(used.values(), key=lambda t: t.name.lower()):
-        scope = "ctrl" if tag.scope == "controller" else tag.scope
+        if tag.scope.startswith(AOI_PREFIX):
+            label = f"parâmetro {tag.usage}" if tag.usage else "tag local"
+            default = format_value(tag.values, 40)
+            if default:
+                label += f", default {default}"
+        else:
+            label = "ctrl" if tag.scope == "controller" else tag.scope
         alias = f" alias de {tag.alias_for}" if tag.alias_for else ""
         reads = len(xref.reads_of(tag))
         writes = len(xref.writes_of(tag))
         desc = f" — {_s(tag.description, 100)}" if tag.description else ""
-        add(f"- {tag.name} ({tag.data_type}, {scope}{alias}; L{reads}/E{writes}){desc}")
+        add(f"- {tag.name} ({tag.data_type}, {label}{alias}; L{reads}/E{writes}){desc}")
     for io in sorted(set(io_refs)):
         add(f"- {io} (I/O de módulo)")
     text = "\n".join(lines)
+    return Serialized(text=text, tokens=estimate_tokens(text))
+
+
+# --------------------------------------------------------------------------
+# AOI text (definition + interface + usage; routines come from routine_text)
+# --------------------------------------------------------------------------
+def aoi_interface_text(ctrl: Controller, name: str, xref: Optional[CrossRef] = None, report: Optional[AoiReport] = None, max_instances: int = 15, max_calls: int = 15) -> Serialized:
+    """Compact description of an AOI for the model: identification, parameters with
+    defaults and internal read/write counts, local tags, routines, instances and call sites."""
+    xref = xref or build_xref(ctrl)
+    rep = report or build_aoi_report(ctrl, name, xref)
+    a = rep.aoi
+    lines: List[str] = []
+    add = lines.append
+    flags = []
+    if a.protected:
+        flags.append("PROTEGIDA")
+    if a.is_safety:
+        flags.append("SAFETY — somente leitura")
+    add(f"# AOI {a.name} rev. {a.revision or '?'}" + (f" ({a.vendor})" if a.vendor else "") + (f" [{', '.join(flags)}]" if flags else ""))
+    if a.description:
+        add(f"Descrição: {_s(a.description, 400)}")
+    if a.revision_note:
+        add(f"Nota de revisão: {_s(a.revision_note, 200)}")
+    if a.help_text:
+        add(f"Ajuda: {_s(a.help_text, 500)}")
+    if a.protected:
+        add("AOI protegida (source protection): parâmetros, tags locais e rotinas não disponíveis.")
+    else:
+        add(f"Executa Prescan: {'sim' if a.execute_prescan else 'não'}; Postscan: {'sim' if a.execute_postscan else 'não'}; EnableInFalse: {'sim' if a.execute_enableinfalse else 'não'}"
+            + ("" if a.execute_enableinfalse else " (com EnableIn falso as saídas mantêm o último valor)"))
+        add("")
+        add("## Parâmetros (L/E = leituras/escritas dentro da AOI; 'chamada' = operando na instrução)")
+        for p in a.parameters:
+            st = rep.params.get(p.name.lower())
+            use = f"L{st.reads}/E{st.writes}" if st else "L0/E0"
+            bits = [p.usage, p.data_type or "?"]
+            if p.required or p.usage == "InOut":
+                bits.append("chamada")
+            default = format_value(p.default, 30)
+            if default:
+                bits.append(f"default {default}")
+            desc = f" — {_s(p.description, 120)}" if p.description else ""
+            add(f"- {p.name} ({', '.join(bits)}; {use}){desc}")
+        locals_ = [t for t in a.local_tags if not t.usage]
+        add("")
+        add(f"## Tags locais ({len(locals_)})")
+        for t in locals_:
+            st = rep.locals.get(t.name.lower())
+            use = f"L{st.reads}/E{st.writes}" if st else "L0/E0"
+            default = format_value(t.values, 40)
+            dims = f"[{t.dimensions}]" if t.dimensions else ""
+            hmi = f", HMI {t.external_access}" if t.hmi_readable else ""
+            desc = f" — {_s(t.description, 100)}" if t.description else ""
+            add(f"- {t.name} ({t.data_type}{dims}{(', default ' + default) if default else ''}{hmi}; {use}){desc}")
+        add("")
+        add("## Rotinas")
+        for r in a.routines:
+            add(f"- {r.name} [{r.type}, {_routine_size(r)}]" + (f" — {_s(r.description, 80)}" if r.description else ""))
+    add("")
+    by_scope: Dict[str, int] = {}
+    for inst in rep.instances:
+        by_scope[inst.scope_label] = by_scope.get(inst.scope_label, 0) + 1
+    add(f"## Instâncias ({len(rep.instances)})" + (": " + ", ".join(f"{k}: {v}" for k, v in sorted(by_scope.items())) if by_scope else ""))
+    for inst in rep.instances[:max_instances]:
+        t = inst.tag
+        calls = ", ".join(f"{s.scope}/{s.routine} {s.call.location}" for s in inst.calls[:3]) or "NUNCA CHAMADA"
+        ext = []
+        if inst.member_reads:
+            ext.append("lidos fora: " + ", ".join(sorted(inst.member_reads)[:6]))
+        if inst.member_writes:
+            ext.append("escritos fora: " + ", ".join(sorted(inst.member_writes)[:6]))
+        desc = f" — {_s(t.description, 60)}" if t.description else ""
+        add(f"- {t.name} ({inst.scope_label}; chamada em {calls}{('; ' + '; '.join(ext)) if ext else ''}){desc}")
+    if len(rep.instances) > max_instances:
+        add(f"- … (+{len(rep.instances) - max_instances} instâncias)")
+    add("")
+    src = rep.calls_by_source()
+    add(f"## Pontos de chamada ({len(rep.calls)})" + (": " + ", ".join(f"{k.upper()} {v}" for k, v in sorted(src.items())) if src else ""))
+    names = [p.name for p in a.call_parameters] if not a.protected else []
+    for s in rep.calls[:max_calls]:
+        c = s.call
+        if c.source == "fbd":
+            args = "; ".join(f"{k}={v}" for k, v in c.pins.items()) or "(pinos não fiados)"
+        else:
+            args = "; ".join(f"{names[i]}={arg}" if i < len(names) else arg for i, arg in enumerate(c.arguments)) or "(só a instância)"
+        add(f"- {s.scope}/{s.routine} {c.location} [{c.source.upper()}] {c.instance or '?'}: {args}")
+    if len(rep.calls) > max_calls:
+        add(f"- … (+{len(rep.calls) - max_calls} chamadas)")
+    if rep.nested:
+        add(f"Chama outras AOIs: {', '.join(rep.nested)}")
+    if rep.used_by:
+        add(f"Usada dentro das AOIs: {', '.join(rep.used_by)}")
+    text = "\n".join(lines)
+    return Serialized(text=text, tokens=estimate_tokens(text))
+
+
+def aoi_text(ctrl: Controller, name: str, xref: Optional[CrossRef] = None, report: Optional[AoiReport] = None) -> Serialized:
+    """Full AOI view for the model: interface text followed by every routine."""
+    xref = xref or build_xref(ctrl)
+    rep = report or build_aoi_report(ctrl, name, xref)
+    parts = [aoi_interface_text(ctrl, name, xref, rep).text]
+    if not rep.aoi.protected:
+        for r in rep.aoi.routines:
+            parts.append(routine_text(ctrl, f"{AOI_PREFIX}{rep.aoi.name}", r.name, xref).text)
+    text = "\n\n".join(parts)
     return Serialized(text=text, tokens=estimate_tokens(text))
 
 

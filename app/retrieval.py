@@ -2,6 +2,8 @@
 
 Pontuação por: nome da rotina e do programa citados na pergunta, tags citadas
 (resolvidas pelo xref), palavras da descrição da rotina e dos comentários de rung.
+AOIs citadas pelo nome (ou por uma tag de instância) trazem as rotinas internas
+da AOI, identificadas pelo escopo ``aoi:<Nome>``.
 """
 
 from __future__ import annotations
@@ -60,16 +62,35 @@ def score_routines(ctx: "ProjectContext", question: str) -> List[RoutineHit]:
 
     ctrl = ctx.ctrl
     xref = ctx.xref
+    aoi_by_name = {a.name.lower(): a for a in ctrl.aois}
+
+    def hit_aoi(aoi, score: float, reason: str) -> None:
+        if aoi.protected:
+            return
+        for r in aoi.routines:
+            if not r.analyzed:
+                continue
+            h = hit(f"aoi:{aoi.name}", r.name)
+            if reason not in h.reasons:
+                h.score += score
+                h.reasons.append(reason)
+
     # tags cited in the question -> routines that use them
     cited_tags = set()
     for ident in idents:
         base = re.split(r"[.\[:]", ident, maxsplit=1)[0]
+        aoi = aoi_by_name.get(base)
+        if aoi is not None:
+            hit_aoi(aoi, 10, f"AOI {aoi.name}")
         candidates = [tag_key("controller", base)] + [tag_key(p.name, base) for p in ctrl.programs]
         for key in candidates:
             tag = xref.tags.get(key)
             if tag is None:
                 continue
             cited_tags.add(tag.name.lower())
+            inst_aoi = aoi_by_name.get(tag.data_type.lower())
+            if inst_aoi is not None:
+                hit_aoi(inst_aoi, 5, f"instância da AOI {inst_aoi.name}")
             for u in xref.usages_of(tag):
                 if u.scope.startswith("aoi:"):
                     continue

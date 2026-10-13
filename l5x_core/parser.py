@@ -13,11 +13,11 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from lxml import etree
 
 from .model import (
-    Aoi, AoiParameter, Controller, DataType, DataTypeMember, Finding, Module,
+    Aoi, AoiCall, AoiParameter, Controller, DataType, DataTypeMember, Finding, Module,
     Program, Routine, Rung, STLine, Tag, TagRef, Task, READ, WRITE, READWRITE,
 )
 from .rung_text import parse_rung, RungSyntaxError, split_tag_path
-from .st_text import extract_st_refs
+from .st_text import extract_st_refs, extract_st_calls
 
 
 class L5XError(Exception):
@@ -75,7 +75,7 @@ def _decorated_to_dict(el: etree._Element) -> Any:
             return _value(el.get("Value"))
         children = list(el)
         return _decorated_to_dict(children[0]) if children else None
-    if tag == "Data":
+    if tag in ("Data", "DefaultData"):
         children = list(el)
         return _decorated_to_dict(children[0]) if children else None
     return None
@@ -192,7 +192,7 @@ class _L5XParser:
             programs=[sp.get("Name") for sp in el.iterfind("ScheduledPrograms/ScheduledProgram") if sp.get("Name")],
         )
 
-    def _tag(self, el: etree._Element, scope: str) -> Tag:
+    def _tag(self, el: etree._Element, scope: str, keep_values: bool = False) -> Tag:
         data_type = el.get("DataType") or ""
         tag = Tag(
             name=el.get("Name") or "?",
@@ -205,16 +205,22 @@ class _L5XParser:
             class_=el.get("Class"),
             usage=el.get("Usage"),
             constant=_bool(el.get("Constant")),
+            external_access=el.get("ExternalAccess"),
         )
-        if data_type in self.bearing_types or data_type.upper() in self.bearing_types:
-            for d in el.iterfind("Data"):
-                if d.get("Format") == "Decorated":
-                    try:
-                        tag.values = _decorated_to_dict(d)
-                    except Exception:  # pragma: no cover - defensive
-                        tag.values = None
-                    break
+        if keep_values or data_type in self.bearing_types or data_type.upper() in self.bearing_types:
+            tag.values = self._decorated(el)
         return tag
+
+    @staticmethod
+    def _decorated(el: etree._Element) -> Any:
+        """Decorated <Data> / <DefaultData> of a tag or parameter, as plain values."""
+        for d in list(el.iterfind("Data")) + list(el.iterfind("DefaultData")):
+            if d.get("Format") == "Decorated":
+                try:
+                    return _decorated_to_dict(d)
+                except Exception:  # pragma: no cover - defensive
+                    return None
+        return None
 
     # ---- AOIs ------------------------------------------------------------
     def _aoi_header(self, el: etree._Element) -> Aoi:
@@ -228,6 +234,8 @@ class _L5XParser:
                 required=_bool(p.get("Required")),
                 visible=_bool(p.get("Visible")),
                 description=_text(p, "Description"),
+                default=self._decorated(p),
+                external_access=p.get("ExternalAccess"),
             )
             for p in el.iterfind("Parameters/Parameter")
         ]
@@ -238,6 +246,14 @@ class _L5XParser:
             description=_text(el, "Description"),
             parameters=params,
             class_=el.get("Class"),
+            execute_prescan=_bool(el.get("ExecutePrescan")),
+            execute_postscan=_bool(el.get("ExecutePostscan")),
+            execute_enableinfalse=_bool(el.get("ExecuteEnableInFalse")),
+            created_date=el.get("CreatedDate"),
+            edited_date=el.get("EditedDate"),
+            software_revision=el.get("SoftwareRevision"),
+            revision_note=_text(el, "RevisionNote"),
+            help_text=_text(el, "AdditionalHelpText"),
         )
         if el.find("EncodedData") is not None:
             aoi.protected = True
@@ -247,11 +263,11 @@ class _L5XParser:
         if aoi.protected:
             return
         scope = f"aoi:{aoi.name}"
-        aoi.local_tags = [self._tag(t, scope) for t in el.iterfind("LocalTags/LocalTag")]
+        aoi.local_tags = [self._tag(t, scope, keep_values=True) for t in el.iterfind("LocalTags/LocalTag")]
         for p in el.iterfind("Parameters/Parameter"):
             # parameters are also tags inside the AOI scope
             aoi.local_tags.append(
-                Tag(name=p.get("Name") or "?", scope=scope, data_type=p.get("DataType") or "", usage=p.get("Usage"), description=_text(p, "Description"), alias_for=p.get("AliasFor"), tag_type="Alias" if p.get("AliasFor") else "Base")
+                Tag(name=p.get("Name") or "?", scope=scope, data_type=p.get("DataType") or "", usage=p.get("Usage"), description=_text(p, "Description"), alias_for=p.get("AliasFor"), tag_type="Alias" if p.get("AliasFor") else "Base", values=self._decorated(p), dimensions=p.get("Dimensions"), external_access=p.get("ExternalAccess"))
             )
         aoi.routines = [self._routine(r, scope) for r in el.iterfind("Routines/Routine")]
 
@@ -310,6 +326,12 @@ class _L5XParser:
             for ins in rung.instructions:
                 if ins.name.upper() in ("JSR", "FOR") and ins.operands:
                     routine.calls.append(ins.operands[0].raw)
+                if ins.is_aoi:
+                    routine.aoi_calls.append(AoiCall(
+                        aoi=ins.name, instance=ins.operands[0].raw if ins.operands else None,
+                        location=f"rung {number}", source="rll", rung=number,
+                        arguments=[o.raw for o in ins.operands[1:]],
+                    ))
             routine.rungs.append(rung)
         routine.size = len(routine.rungs)
 
@@ -319,8 +341,15 @@ class _L5XParser:
         routine.size = len(routine.st_lines)
         try:
             routine.tag_refs, routine.calls = extract_st_refs(routine.st_lines, self.aoi_usages)
+            routine.aoi_calls.extend(self._st_aoi_calls(routine.st_lines, ""))
         except Exception as exc:  # pragma: no cover - defensive
             self.findings.append(Finding(rule="st_parse_error", severity="info", message=f"Rotina ST não interpretada ({exc}).", routine=routine.name))
+
+    def _st_aoi_calls(self, lines: List[STLine], loc_prefix: str) -> List[AoiCall]:
+        out: List[AoiCall] = []
+        for name, args, line in extract_st_calls(lines, self.aoi_usages):
+            out.append(AoiCall(aoi=name, instance=args[0] if args else None, location=f"{loc_prefix}line {line}", source="st", arguments=args[1:]))
+        return out
 
     def _graphic(self, content: etree._Element, routine: Routine, source: str) -> None:
         """FBD/SFC: record size and approximate tag references, nothing more."""
@@ -352,10 +381,60 @@ class _L5XParser:
                         ref.location = f"{loc} {ref.location}"
                     routine.tag_refs.extend(refs)
                     routine.calls.extend(calls)
+                    routine.aoi_calls.extend(self._st_aoi_calls(lines, f"{loc} "))
                 except Exception:  # pragma: no cover - defensive
                     pass
         routine.size = nodes
         routine.sheets = sheet_no
+        if source == "fbd":
+            self._fbd_aoi_calls(content, routine)
+
+    def _fbd_aoi_calls(self, content: etree._Element, routine: Routine) -> None:
+        """AddOnInstruction nodes of an FBD routine, with the operands wired to each pin.
+
+        Input pins map to the IRef operand (or ``block.pin``) feeding them, output pins to
+        the ORef operand(s) they feed, InOut pins to the InOutParameter argument.
+        """
+        sheets = list(content.iterfind("Sheet")) or [content]
+        for sheet_no, sheet in enumerate(sheets, 1):
+            nodes: Dict[str, Tuple[str, str]] = {}  # id -> (kind, operand/name)
+            for node in sheet:
+                nid = node.get("ID")
+                if nid is None:
+                    continue
+                if node.tag in ("IRef", "ORef", "Block", "AddOnInstruction", "ICon", "OCon", "JSR", "SBR", "RET", "Function"):
+                    nodes[nid] = (node.tag, node.get("Operand") or node.get("Name") or node.get("Type") or "?")
+
+            def describe(nid: Optional[str], param: Optional[str]) -> str:
+                kind, operand = nodes.get(nid or "", ("?", f"#{nid}"))
+                if kind in ("IRef", "ORef"):
+                    return operand
+                if kind in ("ICon", "OCon"):
+                    return f"<{operand}>"
+                return f"{operand}.{param}" if param else operand
+
+            wires = [w for w in sheet if w.tag in ("Wire", "FeedbackWire")]
+            for node in sheet:
+                if node.tag != "AddOnInstruction":
+                    continue
+                name = node.get("Name") or "?"
+                if name.lower() not in self.aoi_usages:
+                    continue
+                nid = node.get("ID")
+                pins: Dict[str, str] = {}
+                for iop in node.iterfind("InOutParameter"):
+                    if iop.get("Name") and iop.get("Argument"):
+                        pins[iop.get("Name")] = iop.get("Argument")
+                for w in wires:
+                    if w.get("ToID") == nid and w.get("ToParam"):
+                        pins[w.get("ToParam")] = describe(w.get("FromID"), w.get("FromParam"))
+                    elif w.get("FromID") == nid and w.get("FromParam"):
+                        dest = describe(w.get("ToID"), w.get("ToParam"))
+                        prev = pins.get(w.get("FromParam"))
+                        pins[w.get("FromParam")] = f"{prev}, {dest}" if prev else dest
+                routine.aoi_calls.append(AoiCall(
+                    aoi=name, instance=node.get("Operand"), location=f"sheet {sheet_no}", source="fbd", pins=pins,
+                ))
 
     def _graphic_ref(self, routine: Routine, operand: Optional[str], access: str, loc: str, source: str) -> None:
         if not operand:

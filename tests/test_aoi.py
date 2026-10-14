@@ -368,6 +368,40 @@ def test_retrieval_brings_aoi_routines(apctx):
     assert sel[0][0].program == "aoi:Valve" and sel[0][1].text.startswith("# aoi:Valve / ")
 
 
+def test_retrieval_uses_conversation_history(apctx):
+    history = [
+        {"role": "user", "content": "me fale sobre as AOIs Valve e Scaler"},
+        {"role": "assistant", "content": "Valve comanda válvulas; Scaler escala sinais."},
+    ]
+    # a pergunta de acompanhamento não cita os nomes
+    hits = score_routines(apctx, "quais bugs críticos existem nesses dois AOIs?", history)
+    keys = {(h.program, h.routine): h for h in hits}
+    assert ("aoi:Valve", "Logic") in keys and ("aoi:Scaler", "Logic") in keys
+    assert "AOI Valve (histórico)" in keys[("aoi:Valve", "Logic")].reasons
+    assert keys[("aoi:Valve", "Logic")].score == 5  # metade do peso de uma citação direta
+    # sem histórico cai no fallback (rotina principal)
+    assert all(not h.program.startswith("aoi:") for h in score_routines(apctx, "quais bugs críticos existem nesses dois AOIs?"))
+    # o que está na pergunta vence o histórico
+    hits = score_routines(apctx, "e a AOI Scaler?", history)
+    assert hits[0].program == "aoi:Scaler"
+
+
+def test_chat_brings_aoi_interface_and_findings(apctx, tmp_path):
+    llm, fake = make(tmp_path)
+    history = [{"role": "user", "content": "explique a AOI Valve"}, {"role": "assistant", "content": "ok"}]
+    r = llm.chat(apctx, history, "quais bugs críticos existem nessa AOI?")
+    user = fake.calls[0]["messages"][-1]["content"]
+    assert "# AOI Valve rev. 2.1" in user and "## Parâmetros" in user  # interface acompanha a AOI
+    assert "# aoi:Valve / Logic [RLL]" in user and "# aoi:Valve / EnableInFalse [RLL]" in user
+    assert "aoi_output_multiple_writes" in user and "aoi_call_arity" in user  # findings da AOI
+    assert user.count("# AOI Valve rev. 2.1") == 1  # interface uma vez só, mesmo com 3 rotinas
+    assert "aoi:Valve/Logic" in r.partial_results
+    # pergunta sobre rotina de programa traz os findings daquela rotina
+    llm.chat(apctx, [], "o que faz a rotina MainRoutine?")
+    user = fake.calls[1]["messages"][-1]["content"]
+    assert "# Main / MainRoutine [RLL]" in user and "aoi_call_arity" in user and "# AOI Valve" not in user
+
+
 def test_app_helpers():
     assert action_cost("aoi", "aoi") == 1
     for lang in UI:

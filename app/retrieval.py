@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Sequence, Set, Tuple, TYPE_CHECKING
 
 from l5x_core.serialize import Serialized
 from l5x_core.xref import tag_key
@@ -49,10 +49,18 @@ def query_terms(question: str) -> Tuple[Set[str], Set[str]]:
     return idents, words
 
 
-def score_routines(ctx: "ProjectContext", question: str) -> List[RoutineHit]:
-    """Score every non-protected routine of the project against the question."""
-    idents, words = query_terms(question)
-    hits: Dict[Tuple[str, str], RoutineHit] = {}
+def context_text(history: Optional[Sequence[Dict[str, str]]], turns: int = 2) -> str:
+    """Text of the last ``turns`` user messages (and the assistant answers between them),
+    so a follow-up like "esses dois AOIs" still resolves to the names cited before."""
+    if not history:
+        return ""
+    users = [m.get("content", "") for m in history if m.get("role") == "user"][-turns:]
+    assistants = [m.get("content", "") for m in history if m.get("role") == "assistant"][-1:]
+    return "\n".join(users + assistants)
+
+
+def _score_text(ctx: "ProjectContext", text: str, hits: Dict[Tuple[str, str], RoutineHit], weight: float, tag_reason: str) -> None:
+    idents, words = query_terms(text)
 
     def hit(program: str, routine: str) -> RoutineHit:
         h = hits.get((program, routine))
@@ -72,32 +80,31 @@ def score_routines(ctx: "ProjectContext", question: str) -> List[RoutineHit]:
                 continue
             h = hit(f"aoi:{aoi.name}", r.name)
             if reason not in h.reasons:
-                h.score += score
+                h.score += score * weight
                 h.reasons.append(reason)
 
-    # tags cited in the question -> routines that use them
-    cited_tags = set()
+    # tags / AOIs cited in the text -> routines that use them / AOI internals
     for ident in idents:
         base = re.split(r"[.\[:]", ident, maxsplit=1)[0]
         aoi = aoi_by_name.get(base)
         if aoi is not None:
-            hit_aoi(aoi, 10, f"AOI {aoi.name}")
+            hit_aoi(aoi, 10, f"AOI {aoi.name}{tag_reason}")
         candidates = [tag_key("controller", base)] + [tag_key(p.name, base) for p in ctrl.programs]
         for key in candidates:
             tag = xref.tags.get(key)
             if tag is None:
                 continue
-            cited_tags.add(tag.name.lower())
             inst_aoi = aoi_by_name.get(tag.data_type.lower())
             if inst_aoi is not None:
-                hit_aoi(inst_aoi, 5, f"instância da AOI {inst_aoi.name}")
+                hit_aoi(inst_aoi, 5, f"instância da AOI {inst_aoi.name}{tag_reason}")
             for u in xref.usages_of(tag):
                 if u.scope.startswith("aoi:"):
                     continue
                 h = hit(u.scope, u.routine)
-                if f"tag {tag.name}" not in h.reasons:
-                    h.score += 6
-                    h.reasons.append(f"tag {tag.name}")
+                reason = f"tag {tag.name}{tag_reason}"
+                if reason not in h.reasons:
+                    h.score += 6 * weight
+                    h.reasons.append(reason)
 
     index = ctx.routine_word_index()
     for prog in ctrl.programs:
@@ -107,20 +114,19 @@ def score_routines(ctx: "ProjectContext", question: str) -> List[RoutineHit]:
             if r.protected:
                 continue
             rname = r.name.lower()
-            h: Optional[RoutineHit] = hits.get((prog.name, r.name))
             score = 0.0
             reasons: List[str] = []
             if rname in idents or rname in words:
                 score += 10
-                reasons.append("nome da rotina")
+                reasons.append("nome da rotina" + tag_reason)
             else:
                 partial = [w for w in words if len(w) >= 4 and w in rname]
                 if partial:
                     score += 4
-                    reasons.append("nome parcial da rotina")
+                    reasons.append("nome parcial da rotina" + tag_reason)
             if prog_match:
                 score += 3
-                reasons.append("nome do programa")
+                reasons.append("nome do programa" + tag_reason)
             rwords = index.get((prog.name, r.name), set())
             common = words & rwords
             if common:
@@ -128,12 +134,22 @@ def score_routines(ctx: "ProjectContext", question: str) -> List[RoutineHit]:
                 n_desc = len(common & desc_words)
                 n_comment = min(len(common - desc_words), 5)
                 score += 2 * n_desc + 1 * n_comment
-                reasons.append("descrição/comentários: " + ", ".join(sorted(common)[:5]))
+                reasons.append("descrição/comentários: " + ", ".join(sorted(common)[:5]) + tag_reason)
             if score > 0:
                 h = hit(prog.name, r.name)
-                h.score += score
+                h.score += score * weight
                 h.reasons.extend(reasons)
 
+
+def score_routines(ctx: "ProjectContext", question: str, history: Optional[Sequence[Dict[str, str]]] = None) -> List[RoutineHit]:
+    """Score every non-protected routine (and AOI routine) of the project against the
+    question; identifiers from the recent conversation count with half weight."""
+    hits: Dict[Tuple[str, str], RoutineHit] = {}
+    _score_text(ctx, question, hits, 1.0, "")
+    previous = context_text(history)
+    if previous:
+        _score_text(ctx, previous, hits, 0.5, " (histórico)")
+    ctrl = ctx.ctrl
     ranked = sorted(hits.values(), key=lambda h: (-h.score, h.program.lower(), h.routine.lower()))
     if not ranked:
         # fallback: main routines of scheduled programs
@@ -151,11 +167,12 @@ def select_routines(
     question: str,
     budget_tokens: int,
     max_routines: int = 8,
+    history: Optional[Sequence[Dict[str, str]]] = None,
 ) -> List[Tuple[RoutineHit, Serialized]]:
     """Pick routines in score order while their text fits in ``budget_tokens``."""
     out: List[Tuple[RoutineHit, Serialized]] = []
     used = 0
-    for h in score_routines(ctx, question):
+    for h in score_routines(ctx, question, history):
         if len(out) >= max_routines:
             break
         sr = ctx.routine_text(h.program, h.routine)

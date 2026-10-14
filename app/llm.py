@@ -588,15 +588,32 @@ class LLMClient:
         mode = "chat"
         history_tokens = sum(estimate_tokens(m.get("content", "")) for m in history)
         budget = self.budget_for_content(ctx, language) - history_tokens - estimate_tokens(question)
-        selected = retrieval.select_routines(ctx, question, max(1500, budget), max_routines=max_routines)
+        selected = retrieval.select_routines(ctx, question, max(1500, int(budget * 0.8)), max_routines=max_routines, history=history)
         if selected:
             parts = []
+            introduced: Set[str] = set()
+            scoped_findings: List[Finding] = []
             for hit, sr in selected:
+                if hit.program.startswith(AOI_PREFIX):
+                    name = hit.program[len(AOI_PREFIX):]
+                    if name.lower() not in introduced:
+                        # interface, instâncias e findings da AOI acompanham a primeira rotina dela
+                        introduced.add(name.lower())
+                        try:
+                            rep = ctx.aoi_report(name)
+                            parts.append(aoi_interface_text(ctx.ctrl, name, ctx.xref, rep, max_instances=8, max_calls=8).text)
+                            scoped_findings.extend(rep.findings)
+                        except KeyError:  # pragma: no cover - nome vem do próprio índice
+                            pass
+                else:
+                    scoped_findings.extend(ctx.findings_for(hit.program, hit.routine))
                 parts.append(f"<!-- selecionada por: {', '.join(hit.reasons)} -->\n{sr.text}")
             content = "\n\n".join(parts)
+            findings_txt = ctx.findings_text(scoped_findings, limit=40)
         else:
-            content = "(nenhuma rotina selecionada; responda com base na visão geral e peça ao usuário para indicar a rotina)"
-        user = render(self.prompt("chat"), question=question, content=content)
+            content = "(nenhuma rotina selecionada; responda com base na visão geral e peça ao usuário para indicar a rotina ou a AOI)"
+            findings_txt = "(nenhum)"
+        user = render(self.prompt("chat"), question=question, content=content, findings=findings_txt)
         messages = [{"role": m["role"], "content": m["content"]} for m in history if m.get("role") in ("user", "assistant") and m.get("content")]
         messages.append({"role": "user", "content": user})
         result = self._call(mode, ctx, None, language, on_text, messages=messages)

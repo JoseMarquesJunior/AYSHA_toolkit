@@ -7,6 +7,8 @@
     python -m l5x_core.cli file.L5X --aoi NomeDaAoi              # relatório Markdown (documentação + debug)
     python -m l5x_core.cli file.L5X --aoi NomeDaAoi --aoi-text   # texto da AOI como o LLM recebe
     python -m l5x_core.cli file.L5X --unconnected                # tags soltas (sem fio) em rotinas FBD
+    python -m l5x_core.cli file.L5X --export-config cfg.xlsx     # configuração das instâncias de AOI (aba por AOI)
+    python -m l5x_core.cli file.L5X --aoi AI_TYPE4 --export-config ai4.csv --config-mode all
     python -m l5x_core.cli file.L5X --json saida.json
 """
 
@@ -55,6 +57,8 @@ def main(argv: List[str] | None = None) -> int:
     ap.add_argument("--aoi", metavar="NOME", help="relatório Markdown de uma AOI (documentação + roteiro de debug)")
     ap.add_argument("--aoi-text", action="store_true", help="com --aoi: imprime o texto da AOI como o LLM recebe, em vez do relatório")
     ap.add_argument("--unconnected", action="store_true", help="tabela de elementos FBD sem fio (tags soltas na folha), por rotina")
+    ap.add_argument("--export-config", metavar="SAIDA.xlsx", help="exporta a configuração das instâncias de AOI (uma aba por AOI; .csv exporta só a AOI de --aoi)")
+    ap.add_argument("--config-mode", default="config", choices=("config", "all"), help="config = entradas não obrigatórias + locais editáveis pelo HMI; all = todos os membros")
     ap.add_argument("--json", metavar="SAIDA.json", help="grava modelo + findings + métricas em JSON")
     args = ap.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252
@@ -123,11 +127,27 @@ def main(argv: List[str] | None = None) -> int:
             print(f"\n[~{sr.tokens} tokens]", file=sys.stderr)
         else:
             print(aoi_markdown(report))
+    if args.export_config:
+        from .aoi_config import build_sheets, to_csv, write_xlsx
+
+        sheets = build_sheets(ctrl, xref, mode=args.config_mode, aoi=args.aoi)
+        if not sheets:
+            print("erro: nenhuma instância de AOI com dados para exportar", file=sys.stderr)
+            return 2
+        if args.export_config.lower().endswith(".csv"):
+            if len(sheets) != 1:
+                print("erro: .csv exporta uma única AOI; use --aoi NOME ou grave .xlsx", file=sys.stderr)
+                return 2
+            with open(args.export_config, "w", encoding="utf-8-sig", newline="") as fh:
+                fh.write(to_csv(sheets[0]))
+        else:
+            write_xlsx(sheets, args.export_config, args.config_mode)
+        print(f"Configuração exportada em {args.export_config}: " + ", ".join(f"{s.aoi} ({len(s.rows)} instâncias, {len(s.columns)} colunas)" for s in sheets), file=sys.stderr)
     if args.json:
         with open(args.json, "w", encoding="utf-8") as fh:
             fh.write(to_json(ctrl, findings, metrics))
         print(f"JSON gravado em {args.json}", file=sys.stderr)
-    if not any((args.summary, args.findings, args.dump_routine, args.tags, args.aois, args.aoi, args.unconnected, args.json)):
+    if not any((args.summary, args.findings, args.dump_routine, args.tags, args.aois, args.aoi, args.unconnected, args.export_config, args.json)):
         ov = project_overview(ctrl, findings, metrics)
         print(ov.text)
     return 0

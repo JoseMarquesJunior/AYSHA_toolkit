@@ -156,11 +156,84 @@
 <Tags>
 <Tag Name="XV1" TagType="Base" DataType="Valve" Constant="false" ExternalAccess="Read/Write">
 <Description><![CDATA[Válvula 1]]></Description>
+<EngineeringUnits><EngineeringUnit><![CDATA[%]]></EngineeringUnit></EngineeringUnits>
+<Areas><Area><![CDATA[HCS]]></Area></Areas>
+<Data Format="Decorated">
+<Structure DataType="Valve">
+<DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/>
+<DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Cmd_Open" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Fbk_Open" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Cfg_TravelT" DataType="DINT" Radix="Decimal" Value="7000"/>
+<DataValueMember Name="Out_Open" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Sts_Fault" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Spare_In" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Out_Never" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Inp_Written" DataType="REAL" Radix="Float" Value="0.0"/>
+<StructureMember Name="Wrk_T" DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="7000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="123"/>
+<DataValueMember Name="EN" DataType="BOOL" Value="0"/>
+<DataValueMember Name="TT" DataType="BOOL" Value="0"/>
+<DataValueMember Name="DN" DataType="BOOL" Value="0"/>
+</StructureMember>
+<DataValueMember Name="Wrk_Unused" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="Wrk_Bit" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Sts_HMI" DataType="DINT" Radix="Decimal" Value="5"/>
+<DataValueMember Name="Wrk_Const" DataType="REAL" Radix="Float" Value="1.5"/>
+<DataValueMember Name="Cfg_HMI" DataType="REAL" Radix="Float" Value="2.5"/>
+<DataValueMember Name="Wrk_Scaled" DataType="REAL" Radix="Float" Value="0.0"/>
+<StructureMember Name="Wrk_Scl" DataType="Scaler">
+<DataValueMember Name="EnableIn" DataType="BOOL" Value="1"/>
+<DataValueMember Name="EnableOut" DataType="BOOL" Value="0"/>
+<DataValueMember Name="In" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Out" DataType="REAL" Radix="Float" Value="0.0"/>
+</StructureMember>
+</Structure>
+</Data>
 </Tag>
-<Tag Name="XV2" TagType="Base" DataType="Valve" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="XV2" TagType="Base" DataType="Valve" Constant="false" ExternalAccess="Read/Write">
+<Data Format="Decorated">
+<Structure DataType="Valve">
+<DataValueMember Name="Cmd_Open" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Cfg_TravelT" DataType="DINT" Radix="Decimal" Value="5000"/>
+<StructureMember Name="Wrk_T" DataType="TIMER">
+<DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="5000"/>
+<DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/>
+</StructureMember>
+<DataValueMember Name="Cfg_HMI" DataType="REAL" Radix="Float" Value="0.0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="XV3" TagType="Base" DataType="Valve" Constant="false" ExternalAccess="Read/Write"/>
-<Tag Name="XV_Arr" TagType="Base" DataType="Valve" Dimensions="2" Constant="false" ExternalAccess="Read/Write"/>
-<Tag Name="Scl1" TagType="Base" DataType="Scaler" Constant="false" ExternalAccess="Read/Write"/>
+<Tag Name="XV_Arr" TagType="Base" DataType="Valve" Dimensions="2" Constant="false" ExternalAccess="Read/Write">
+<Data Format="Decorated">
+<Array DataType="Valve" Dimensions="2">
+<Element Index="[0]">
+<Structure DataType="Valve">
+<DataValueMember Name="Cmd_Open" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Cfg_TravelT" DataType="DINT" Radix="Decimal" Value="100"/>
+<DataValueMember Name="Cfg_HMI" DataType="REAL" Radix="Float" Value="1.0"/>
+</Structure>
+</Element>
+<Element Index="[1]">
+<Structure DataType="Valve">
+<DataValueMember Name="Cmd_Open" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Cfg_TravelT" DataType="DINT" Radix="Decimal" Value="200"/>
+<DataValueMember Name="Cfg_HMI" DataType="REAL" Radix="Float" Value="2.0"/>
+</Structure>
+</Element>
+</Array>
+</Data>
+</Tag>
+<Tag Name="Scl1" TagType="Base" DataType="Scaler" Constant="false" ExternalAccess="Read/Write">
+<Data Format="Decorated">
+<Structure DataType="Scaler">
+<DataValueMember Name="In" DataType="REAL" Radix="Float" Value="3.5"/>
+<DataValueMember Name="Out" DataType="REAL" Radix="Float" Value="7.0"/>
+</Structure>
+</Data>
+</Tag>
 <Tag Name="Lk1" TagType="Base" DataType="Locked" Constant="false" ExternalAccess="Read/Write"/>
 <Tag Name="Fbk1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>
 <Tag Name="Out1" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"/>

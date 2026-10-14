@@ -188,6 +188,9 @@ class Tag:
     constant: bool = False
     values: Optional[Dict[str, Any]] = None  # decorated values (timer/counter bearing tags; all AOI locals/params)
     external_access: Optional[str] = None  # "Read/Write" | "Read Only" | "None" (HMI visibility)
+    engineering_unit: Optional[str] = None  # extended properties (Studio 5000 v33+)
+    label: Optional[str] = None
+    area: Optional[str] = None
 
     @property
     def hmi_readable(self) -> bool:

@@ -27,6 +27,7 @@ import streamlit as st  # noqa: E402
 
 from app.credits import CreditStore  # noqa: E402
 from app.llm import LANGUAGES, ConfigError, LLMClient, LLMConfig, LLMError, ProjectContext  # noqa: E402
+from l5x_core.aoi_config import to_csv  # noqa: E402
 from l5x_core.model import SEVERITIES  # noqa: E402
 from l5x_core.parser import L5XError, parse_file  # noqa: E402
 
@@ -106,6 +107,15 @@ UI: Dict[str, Dict[str, str]] = {
         "unconnected_help": "Referências de tag (IRef/ORef) e conectores colocados na folha sem nenhum fio: a tag não alimenta nem recebe nada. Blocos sem nenhum fio também aparecem. Análise determinística, sem custo.",
         "unconnected_none": "Nenhum elemento FBD sem fio neste projeto.",
         "unconnected_download": "Baixar lista (CSV)",
+        "export_title": "Exportar configuração das instâncias",
+        "export_help": "Lê os valores guardados em cada tag de instância (ranges, setpoints, atrasos, flags de HMI) e monta uma tabela por AOI: uma linha por instância, uma coluna por parâmetro. Sem custo.",
+        "export_mode": "Membros",
+        "export_mode_config": "Configuração (entradas não obrigatórias + locais editáveis pelo HMI)",
+        "export_mode_all": "Todos os parâmetros e tags locais",
+        "export_xlsx": "Baixar Excel com todas as AOIs",
+        "export_csv": "Baixar CSV desta AOI",
+        "export_preview": "{rows} instância(s) × {cols} coluna(s) nesta AOI",
+        "export_none": "Nenhuma instância com dados para exportar.",
         "nav_programs": "Programas e rotinas",
         "nav_aois": "AOIs",
         "nav_diag": "Diagnóstico",
@@ -229,6 +239,15 @@ UI: Dict[str, Dict[str, str]] = {
         "unconnected_help": "Tag references (IRef/ORef) and connectors placed on the sheet without any wire: the tag feeds nothing and is fed by nothing. Blocks without any wire are listed too. Deterministic, free.",
         "unconnected_none": "No unwired FBD element in this project.",
         "unconnected_download": "Download list (CSV)",
+        "export_title": "Export instance configuration",
+        "export_help": "Reads the values stored in each instance tag (ranges, setpoints, delays, HMI flags) and builds one table per AOI: one row per instance, one column per parameter. Free.",
+        "export_mode": "Members",
+        "export_mode_config": "Configuration (non-required inputs + HMI-editable locals)",
+        "export_mode_all": "All parameters and local tags",
+        "export_xlsx": "Download Excel with all AOIs",
+        "export_csv": "Download CSV for this AOI",
+        "export_preview": "{rows} instance(s) × {cols} column(s) in this AOI",
+        "export_none": "No instance with data to export.",
         "nav_programs": "Programs and routines",
         "nav_aois": "AOIs",
         "nav_diag": "Diagnostics",
@@ -352,6 +371,15 @@ UI: Dict[str, Dict[str, str]] = {
         "unconnected_help": "Referencias de tag (IRef/ORef) y conectores colocados en la hoja sin ningún cable: la tag no alimenta ni recibe nada. Los bloques sin ningún cable también aparecen. Análisis determinístico, sin costo.",
         "unconnected_none": "Ningún elemento FBD sin cable en este proyecto.",
         "unconnected_download": "Descargar lista (CSV)",
+        "export_title": "Exportar configuración de las instancias",
+        "export_help": "Lee los valores guardados en cada tag de instancia (rangos, setpoints, retardos, flags de HMI) y arma una tabla por AOI: una fila por instancia, una columna por parámetro. Sin costo.",
+        "export_mode": "Miembros",
+        "export_mode_config": "Configuración (entradas no obligatorias + locales editables por el HMI)",
+        "export_mode_all": "Todos los parámetros y tags locales",
+        "export_xlsx": "Descargar Excel con todas las AOIs",
+        "export_csv": "Descargar CSV de esta AOI",
+        "export_preview": "{rows} instancia(s) × {cols} columna(s) en esta AOI",
+        "export_none": "Ninguna instancia con datos para exportar.",
         "nav_programs": "Programas y rutinas",
         "nav_aois": "AOIs",
         "nav_diag": "Diagnóstico",
@@ -905,8 +933,28 @@ def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
         st.download_button(t("aoi_download_report"), data=md.encode("utf-8"), file_name=f"{ctx.ctrl.name}_AOI_{name}.md".replace(" ", "_"), mime="text/markdown", key="dl_aoi_report")
     aoi_findings = ctx.aoi_findings(name)
     findings_panel(aoi_findings, key=f"aoi_{name}", title=t("aoi_findings", n=len(aoi_findings)), expanded=False)
+    export_area(ctx, name)
     st.divider()
     results_panel(ctx, AREA_MODES["aois"])
+
+
+def export_area(ctx: ProjectContext, name: str) -> None:
+    """Configuração das instâncias de AOI: Excel do projeto inteiro ou CSV da AOI escolhida."""
+    with st.expander(t("export_title"), expanded=False):
+        st.caption(t("export_help"))
+        modes = {"config": t("export_mode_config"), "all": t("export_mode_all")}
+        mode = st.radio(t("export_mode"), list(modes), format_func=lambda k: modes[k], key="export_mode", horizontal=True)
+        sheet = ctx.config_sheet(name, mode)
+        if sheet is None:
+            st.caption(t("export_none"))
+        else:
+            st.caption(t("export_preview", rows=len(sheet.rows), cols=len(sheet.columns)))
+            st.dataframe([{k: r[k] for k in sheet.header} for r in sheet.rows[:200]], width="stretch", hide_index=True)
+        c1, c2 = st.columns(2)
+        if sheet is not None:
+            c1.download_button(t("export_csv"), data=to_csv(sheet).encode("utf-8-sig"), file_name=f"{ctx.ctrl.name}_{name}_{mode}.csv".replace(" ", "_"), mime="text/csv", key="dl_cfg_csv")
+        c2.download_button(t("export_xlsx"), data=ctx.config_xlsx(mode), file_name=f"{ctx.ctrl.name}_config_AOIs_{mode}.xlsx".replace(" ", "_"),
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_cfg_xlsx")
 
 
 def chat_area(ctx: ProjectContext, store: CreditStore) -> None:

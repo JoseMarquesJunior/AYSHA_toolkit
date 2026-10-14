@@ -184,6 +184,27 @@ samples/           projetos reais (ignorado pelo git)
 Métricas (`Metrics`): programas, rotinas por tipo, rungs, linhas ST, instruções, tags por escopo, AOIs
 (e protegidas), UDTs, módulos, tasks, maior rotina, profundidade máxima de ramos, % de rungs comentados.
 
+## Exportar a configuração das instâncias de AOI
+
+Cada tag de instância de uma AOI guarda, nos seus dados decorados, o valor de todos os parâmetros e tags
+locais (ranges, setpoints, atrasos, flags de HMI). O Studio 5000 não oferece uma forma prática de listar
+isso para todas as instâncias; `l5x_core/aoi_config.py` monta **uma tabela por tipo de AOI** (uma linha por
+instância, uma coluna por membro, estruturas achatadas como `Wrk_T.PRE`, arrays de instâncias expandidos
+como `XV_Arr[0]`) e grava Excel (aba *Resumo*, uma aba por AOI, aba *Dicionario* com uso, tipo, default e
+descrição de cada membro) ou CSV. Colunas fixas: PLC, AOI, Instancia, Escopo, Descricao, Unidade, Area.
+
+Dois modos: **config** (parâmetros Input não obrigatórios, que vivem na tag de instância, mais tags locais
+editáveis pelo HMI; timers só com PRE) e **all** (todos os parâmetros e locais).
+
+```bash
+python -m l5x_core.cli projeto.L5X --export-config config.xlsx                      # todas as AOIs
+python -m l5x_core.cli projeto.L5X --aoi AI_TYPE4 --export-config ai4.csv --config-mode all
+```
+
+No app, a seção **AOIs** tem o expander *Exportar configuração das instâncias* com prévia, CSV da AOI
+escolhida e Excel do projeto inteiro. Para consolidar vários PLCs, exporte cada L5X e junte as abas: a
+coluna PLC identifica a origem.
+
 ## Rotinas FBD: netlist aproximada e escopo de programa
 
 O parser extrai de cada rotina FBD uma **netlist por folha** (`Routine.fbd_nodes`): blocos, AOIs,

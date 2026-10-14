@@ -3,3 +3,4 @@ streamlit>=1.36
 anthropic>=0.40
 pytest>=8.0
 python-dotenv>=1.0
+openpyxl>=3.1

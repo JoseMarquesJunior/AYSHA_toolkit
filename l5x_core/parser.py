@@ -206,8 +206,13 @@ class _L5XParser:
             usage=el.get("Usage"),
             constant=_bool(el.get("Constant")),
             external_access=el.get("ExternalAccess"),
+            engineering_unit=_text(el, "EngineeringUnits/EngineeringUnit"),
+            label=_text(el, "Labels/Label"),
+            area=_text(el, "Areas/Area"),
         )
-        if keep_values or data_type in self.bearing_types or data_type.upper() in self.bearing_types:
+        # values are kept for timer/counter bearing tags, AOI locals/params and AOI instances
+        # (the instance tag holds the configuration of every non-required parameter and local)
+        if keep_values or data_type in self.bearing_types or data_type.upper() in self.bearing_types or data_type.lower() in self.aoi_usages:
             tag.values = self._decorated(el)
         return tag
 

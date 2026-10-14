@@ -217,6 +217,22 @@ class ProjectContext:
     def aoi_findings(self, name: str) -> List[Finding]:
         return list(self.aoi_report(name).findings)
 
+    def config_sheet(self, name: str, mode: str = "config"):
+        """Tabela de configuração das instâncias de uma AOI (None se não houver instâncias com dados)."""
+        from l5x_core.aoi_config import build_sheets
+
+        sheets = build_sheets(self.ctrl, self.xref, mode=mode, aoi=name)
+        return sheets[0] if sheets else None
+
+    def config_xlsx(self, mode: str = "config") -> bytes:
+        """Excel com uma aba por AOI (cacheado por modo)."""
+        from l5x_core.aoi_config import build_sheets, xlsx_bytes
+
+        cache = self.__dict__.setdefault("_config_xlsx", {})
+        if mode not in cache:
+            cache[mode] = xlsx_bytes(build_sheets(self.ctrl, self.xref, mode=mode), mode)
+        return cache[mode]
+
     def aoi_routines(self, name: str) -> List[Tuple[str, str]]:
         """Rotinas analisáveis da AOI como unidades (``aoi:<Nome>``, rotina)."""
         rep = self.aoi_report(name)

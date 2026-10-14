@@ -155,7 +155,7 @@ def test_helpers():
     assert validate({"a": nan[0]}, {"a": "1.#QNAN"}) is None and validate({"a": 1.0}, {"a": "1.#QNAN"}) == "a"
     assert validate({"w": -1521025024}, {"w": 2773942272}) is None  # mesmo padrão de bits (DINT com bit 31)
     from l5x_core.parser import _value
-    assert _value("2#1010_0101_0101_0101_0000_0000_0000_0000", "DINT") == -1521025024 and _value("16#FF", "SINT") == -1 and _value("16#FF", "USINT") == 255 and _value("16#FF") == 255
+    assert _value("2#1010_0101_0101_0101_0000_0000_0000_0000", "DINT") == 0xA5550000 - (1 << 32) and _value("16#FF", "SINT") == -1 and _value("16#FF", "USINT") == 255 and _value("16#FF") == 255
     assert merge({"a": 1, "s": {"x": 1}}, {"a": 9, "s": {"x": 2, "y": 3}, "loc": 7}) == {"a": 1, "s": {"x": 1, "y": 3}, "loc": 7}
     lay = Layouts(parse_bytes((XML % BOOLS).encode("utf-8")))
     assert lay.decode([5, 10, 7], "COUNTER") == {"CU": 0, "CD": 0, "DN": 0, "OV": 0, "UN": 0, "PRE": 10, "ACC": 7}

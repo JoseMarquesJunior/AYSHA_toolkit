@@ -333,6 +333,25 @@ Confirmadas nos dois L5X de exemplo (Studio 5000 v35):
   DELETE/INSERT/FIND/DTOS/STOD/RTOS/STOR, PID, FOR/BRK, UID/UIE, MCR, EVENT, IOT. Nenhuma instrução
   desconhecida restou nos dois exemplos.
 
+## Modelos, créditos e custo
+
+Roteamento híbrido: **Explicar** e **Chat** usam `MODEL_FAST` (Sonnet); **Revisar**, **Documentar** e
+**Analisar AOI** usam `MODEL_DEEP` (Fable). Nas ações rápidas há a opção **Análise profunda**, que troca
+pelo `MODEL_DEEP` naquela ação, cobrando a diferença. O raciocínio é cobrado como saída, então cada modo tem
+um teto de tokens de saída (`OUTPUT_TOKENS_EXPLAIN` 6000, `_CHAT` 4000, `_REVIEW` 16000, `_DOCUMENT` 16000,
+`_AOI` 12000; `MAX_OUTPUT_TOKENS` é o teto global) e os prompts de revisão e de AOI pedem concisão.
+
+O custo em créditos é **calculado antes de executar**: tokens de entrada (bloco de sistema + conteúdo
+selecionado, por pedaço no map-reduce) e saída típica medida por modo, multiplicados pelo preço do modelo
+(`PRICES_USD` em `app/llm.py`, tabela de out/2026, sobrescrevível com
+`MODEL_PRICES="claude-fable-5-1:10:50:0.25,..."`), convertidos por
+`créditos = teto(custo_usd × CREDIT_MARKUP ÷ CREDIT_USD)` (padrão: margem 4x, 1 crédito = US$ 0,10).
+O botão mostra os créditos e o tooltip detalha modelo, tokens e US$; o débito é o valor mostrado.
+Modelo com ID desconhecido assume o preço mais caro. `python -m app.llm projeto.L5X --mode review
+--target Programa --estimate` imprime a estimativa sem chamar o modelo; `--deep` usa o modelo profundo.
+Custos medidos no uso real (US$ por ação, tabela de out/2026): explicar 0,04, chat 0,08, revisar programa
+0,60, documentar 0,5, AOI 0,4 (Opus) a 1,5 (Fable).
+
 ## Idiomas
 
 Interface e respostas do modelo em português (BR), inglês, espanhol, chinês simplificado (`zh-CN`) e

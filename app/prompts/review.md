@@ -22,7 +22,7 @@ Pontos positivos objetivos (1 a 3), se existirem.
 
 Regras:
 - Conteúdo SAFETY: descreva os findings, mas NÃO proponha correção; indique que a alteração passa pelo processo de validação de segurança.
-- Não repita a tabela de findings inteira; priorize.
+- Não repita a tabela de findings inteira; priorize. Não transcreva rungs; cite-os. Alvo: até cerca de 2.000 palavras por escopo.
 - Termine com a frase obrigatória: "Análise automática: validar com o engenheiro responsável antes de qualquer alteração."
 
 ### Findings do parser

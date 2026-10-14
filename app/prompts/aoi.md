@@ -35,6 +35,8 @@ Lista numerada, orientada ao técnico com a instância online aberta no Studio 5
 
 Regras: identificadores exatamente como no índice; separe "confirmado pelo parser" de "hipótese do modelo"; não descreva lógica de rotinas FBD/SFC ou protegidas como se a tivesse visto; termine com "Análise automática: validar com o engenheiro responsável antes de qualquer alteração."
 
+Tamanho: seja denso, não extenso. Não transcreva rungs, tabelas de parâmetros nem a lista de instâncias (o leitor tem o relatório determinístico); em rotinas grandes agrupe por bloco funcional. Alvo: até cerca de 2.500 palavras.
+
 ### Definição e interface (parser)
 {interface}
 

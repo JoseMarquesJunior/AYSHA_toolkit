@@ -52,7 +52,20 @@ LANGUAGES: Dict[str, str] = {
 }
 
 MODES = ("explain", "review", "document", "chat", "aoi")
-DEEP_MODES = {"review", "document", "aoi"}
+DEEP_MODES = {"review", "document", "aoi"}  # sempre no MODEL_DEEP; explain/chat usam MODEL_FAST, ou MODEL_DEEP com deep=True
+
+# Preço por milhão de tokens (entrada, saída, leitura de cache), tabela da Anthropic de out/2026.
+# Sobrescreva com MODEL_PRICES="id:in:out:cache,...". Modelo desconhecido assume o mais caro.
+PRICES_USD: Dict[str, Tuple[float, float, float]] = {
+    "claude-sonnet-5-5": (2.0, 10.0, 0.20), "claude-sonnet-5": (2.0, 10.0, 0.20), "claude-sonnet-4-6": (3.0, 15.0, 0.30),
+    "claude-opus-5-5": (4.0, 20.0, 0.20), "claude-opus-5": (5.0, 25.0, 0.50), "claude-opus-4-8": (5.0, 25.0, 0.50),
+    "claude-fable-5-1": (10.0, 50.0, 0.25), "claude-fable-5": (10.0, 50.0, 0.25),
+    "claude-haiku-5-5": (0.10, 0.50, 0.01), "claude-haiku-4-5": (1.0, 5.0, 0.10),
+}
+DEFAULT_PRICE = (10.0, 50.0, 1.0)
+# Teto de tokens de saída por modo (raciocínio é cobrado como saída) e saída típica medida no uso real.
+OUTPUT_CAPS: Dict[str, int] = {"explain": 6_000, "chat": 4_000, "review": 16_000, "document": 16_000, "aoi": 12_000}
+EXPECTED_OUTPUT: Dict[str, int] = {"explain": 2_500, "chat": 3_500, "review": 12_000, "document": 10_000, "aoi": 10_000}
 
 # ----------------------------------------------------------------------------
 # Errors
@@ -91,6 +104,10 @@ class LLMConfig:
     max_continuations: int = 2  # pedidos de "continue" quando a resposta para por max_tokens
     log_path: Optional[str] = "llm_calls.csv"
     language: str = "pt-BR"
+    credit_usd: float = 0.10  # valor de 1 crédito em custo de API
+    markup: float = 4.0  # margem sobre o custo de API ao converter em créditos
+    output_caps: Dict[str, int] = field(default_factory=lambda: dict(OUTPUT_CAPS))
+    prices: Dict[str, Tuple[float, float, float]] = field(default_factory=lambda: dict(PRICES_USD))
 
     @classmethod
     def from_env(cls, secrets: Optional[Mapping[str, Any]] = None, dotenv: bool = True) -> "LLMConfig":
@@ -126,6 +143,19 @@ class LLMConfig:
         language = get("APP_LANGUAGE", "pt-BR") or "pt-BR"
         if language not in LANGUAGES:
             language = "pt-BR"
+        caps = dict(OUTPUT_CAPS)
+        for mode in MODES:
+            raw = get(f"OUTPUT_TOKENS_{mode.upper()}")
+            if raw and raw.isdigit():
+                caps[mode] = int(raw)
+        prices = dict(PRICES_USD)
+        for item in (get("MODEL_PRICES") or "").split(","):
+            parts = item.strip().split(":")
+            if len(parts) == 4:
+                try:
+                    prices[parts[0]] = (float(parts[1]), float(parts[2]), float(parts[3]))
+                except ValueError:
+                    pass
         return cls(
             model_fast=model_fast,
             model_deep=model_deep or model_fast,
@@ -137,13 +167,27 @@ class LLMConfig:
             max_continuations=int(get("LLM_MAX_CONTINUATIONS", "2") or 0),
             log_path=get("LLM_LOG_PATH", "llm_calls.csv"),
             language=language,
+            credit_usd=float(get("CREDIT_USD", "0.10") or 0.10),
+            markup=float(get("CREDIT_MARKUP", "4") or 4),
+            output_caps=caps,
+            prices=prices,
         )
 
-    def model_for(self, mode: str) -> str:
-        return self.model_deep if mode in DEEP_MODES else self.model_fast
+    def model_for(self, mode: str, deep: bool = False) -> str:
+        return self.model_deep if (mode in DEEP_MODES or deep) else self.model_fast
 
-    def effort_for(self, mode: str) -> Optional[str]:
-        return self.effort_deep if mode in DEEP_MODES else self.effort_fast
+    def effort_for(self, mode: str, deep: bool = False) -> Optional[str]:
+        return self.effort_deep if (mode in DEEP_MODES or deep) else self.effort_fast
+
+    def output_cap(self, mode: str) -> int:
+        return min(self.max_output_tokens, self.output_caps.get(mode, self.max_output_tokens))
+
+    def price_for(self, model: str) -> Tuple[float, float, float]:
+        return self.prices.get(model, DEFAULT_PRICE)
+
+    @property
+    def has_deep_option(self) -> bool:
+        return self.model_deep != self.model_fast
 
 
 # ----------------------------------------------------------------------------
@@ -444,6 +488,25 @@ class Usage:
 
 
 @dataclass
+class CostEstimate:
+    """Custo previsto de uma ação, calculado antes da chamada a partir do tamanho do contexto."""
+
+    mode: str
+    model: str
+    calls: int
+    input_tokens: int
+    output_tokens: int
+    usd: float
+    credits: int
+
+    def summary(self) -> str:
+        def k(n: int) -> str:
+            return f"{n:,}".replace(",", ".")
+
+        return f"{self.model} · ~{k(self.input_tokens)} tokens de entrada, ~{k(self.output_tokens)} de saída, {self.calls} chamada(s) · ≈ US$ {self.usd:.2f}"
+
+
+@dataclass
 class LLMResult:
     text: str
     mode: str
@@ -530,9 +593,7 @@ class LLMClient:
         return max(500, self.config.max_context_tokens - self.system_tokens(ctx, language) - reserve)
 
     # ---- modes ----------------------------------------------------------------
-    def explain(self, ctx: ProjectContext, program: str, routine: Optional[str] = None, language: Optional[str] = None, on_text: OnText = None) -> LLMResult:
-        """Explica uma rotina, ou o programa inteiro (routine=None) rotina a rotina."""
-        mode = "explain"
+    def _explain_plan(self, ctx: ProjectContext, program: str, routine: Optional[str], language: Optional[str]) -> Tuple[str, List[str]]:
         if routine:
             units = [(program, routine)]
             target = f"{program} / {routine}"
@@ -541,17 +602,85 @@ class LLMClient:
             target = f"programa {program} (main, fault e sub-rotinas na ordem dos JSR)"
             if not units:
                 raise LLMError(f"Programa '{program}' não encontrado ou sem rotinas.", kind="api")
-        chunks = self._pack_units(ctx, units, self.budget_for_content(ctx, language))
+        return target, self._pack_units(ctx, units, self.budget_for_content(ctx, language))
+
+    def explain(self, ctx: ProjectContext, program: str, routine: Optional[str] = None, language: Optional[str] = None, on_text: OnText = None, deep: bool = False) -> LLMResult:
+        """Explica uma rotina, ou o programa inteiro (routine=None) rotina a rotina.
+        ``deep=True`` usa o MODEL_DEEP (análise profunda) em vez do MODEL_FAST."""
+        mode = "explain"
+        target, chunks = self._explain_plan(ctx, program, routine, language)
         template = self.prompt("explain")
         if len(chunks) == 1:
             user = render(template, target=target, content=chunks[0])
-            return self._call(mode, ctx, user, language, on_text)
+            return self._call(mode, ctx, user, language, on_text, deep=deep)
         # map: explicações por parte, concatenadas (sem reduce)
         results: List[LLMResult] = []
         for i, chunk in enumerate(chunks, 1):
             user = render(template, target=f"{target} — parte {i}/{len(chunks)}", content=chunk)
-            results.append(self._call(mode, ctx, user, language, on_text))
+            results.append(self._call(mode, ctx, user, language, on_text, deep=deep))
         return self._merge(results, mode, joiner="\n\n---\n\n")
+
+    # ---- custo previsto ---------------------------------------------------------
+    def credits_for_usd(self, usd: float) -> int:
+        import math
+
+        return max(1, int(math.ceil(usd * self.config.markup / self.config.credit_usd - 1e-9)))
+
+    def estimate(self, mode: str, ctx: ProjectContext, program: Optional[str] = None, routine: Optional[str] = None, aoi: Optional[str] = None,
+                 question: str = "", history: Sequence[Dict[str, str]] = (), language: Optional[str] = None, deep: bool = False) -> CostEstimate:
+        """Custo previsto da ação (tokens, US$ e créditos) sem chamar o modelo. Reproduz a
+        seleção de conteúdo de cada modo; a saída usa a média medida por modo, limitada ao teto."""
+        sys_tokens = self.system_tokens(ctx, language)
+        expected_out = min(EXPECTED_OUTPUT.get(mode, 4000), self.config.output_cap(mode))
+        reduce_calls = 0
+        if mode == "explain":
+            if not program:
+                raise LLMError("Informe o programa.", kind="api")
+            _, chunks = self._explain_plan(ctx, program, routine, language)
+            extra = 0
+        elif mode == "review":
+            if routine:
+                units = [(program, routine)]  # type: ignore[list-item]
+            else:
+                units = ctx.content_routines(program)
+            if not units:
+                raise LLMError("Nenhuma rotina com conteúdo (ladder, ST ou FBD) no escopo pedido.", kind="api")
+            findings_txt = ctx.findings_text(ctx.findings_for(program, routine))
+            extra = estimate_tokens(findings_txt)
+            chunks = self._pack_units(ctx, units, max(500, self.budget_for_content(ctx, language) - extra))
+            reduce_calls = 1 if len(chunks) > 1 else 0
+        elif mode == "document":
+            units = ctx.content_routines(program)
+            if program and not units and not ctx.all_routines(program):
+                raise LLMError(f"Programa '{program}' não encontrado.", kind="api")
+            extra = sum(estimate_tokens(x) for x in (ctx.findings_text(ctx.findings_for(program, min_severity="warning"), limit=40), ctx.io_table(program), ctx.timer_table(program)))
+            chunks = self._pack_units(ctx, units, max(500, self.budget_for_content(ctx, language) - extra)) if units else [""]
+            reduce_calls = 1 if len(chunks) > 1 else 0
+        elif mode == "aoi":
+            try:
+                rep = ctx.aoi_report(aoi or "")
+            except KeyError as exc:
+                raise LLMError(str(exc), kind="api") from exc
+            interface = aoi_interface_text(ctx.ctrl, rep.aoi.name, ctx.xref, rep).text
+            extra = estimate_tokens(interface) + estimate_tokens(ctx.findings_text(rep.findings, limit=60))
+            units = ctx.aoi_routines(rep.aoi.name)
+            chunks = self._pack_units(ctx, units, max(500, self.budget_for_content(ctx, language) - extra)) if units else [""]
+            reduce_calls = 1 if len(chunks) > 1 else 0
+        elif mode == "chat":
+            history_tokens = sum(estimate_tokens(m.get("content", "")) for m in history)
+            budget = self.budget_for_content(ctx, language) - history_tokens - estimate_tokens(question)
+            selected = retrieval.select_routines(ctx, question or "rotina principal", max(1500, int(budget * 0.8)), history=history)
+            extra = history_tokens + estimate_tokens(question) + 400
+            chunks = ["\n".join(sr.text for _, sr in selected)]
+        else:
+            raise LLMError(f"modo desconhecido: {mode}", kind="api")
+        model = self.config.model_for(mode, deep)
+        price_in, price_out, _ = self.config.price_for(model)
+        calls = len(chunks) + reduce_calls
+        input_tokens = sum(sys_tokens + extra + estimate_tokens(c) for c in chunks) + reduce_calls * (sys_tokens + len(chunks) * expected_out)
+        output_tokens = calls * expected_out
+        usd = (input_tokens * price_in + output_tokens * price_out) / 1e6
+        return CostEstimate(mode=mode, model=model, calls=calls, input_tokens=input_tokens, output_tokens=output_tokens, usd=round(usd, 4), credits=self.credits_for_usd(usd))
 
     def review(self, ctx: ProjectContext, program: Optional[str] = None, routine: Optional[str] = None, language: Optional[str] = None, on_text: OnText = None) -> LLMResult:
         mode = "review"
@@ -632,7 +761,7 @@ class LLMClient:
             partials.append(self._call(mode, ctx, user, language, None))
         return self._reduce(mode, ctx, f"AOI {aoi.name}", partials, language, on_text)
 
-    def chat(self, ctx: ProjectContext, history: Sequence[Dict[str, str]], question: str, language: Optional[str] = None, on_text: OnText = None, max_routines: int = 8) -> LLMResult:
+    def chat(self, ctx: ProjectContext, history: Sequence[Dict[str, str]], question: str, language: Optional[str] = None, on_text: OnText = None, max_routines: int = 8, deep: bool = False) -> LLMResult:
         """Pergunta livre. ``history`` = [{"role": "user"|"assistant", "content": texto}, ...]
         com as perguntas e respostas anteriores (sem as rotinas recuperadas, que são
         injetadas só na pergunta atual). O chamador anexa a pergunta e a resposta ao histórico."""
@@ -667,7 +796,7 @@ class LLMClient:
         user = render(self.prompt("chat"), question=question, content=content, findings=findings_txt)
         messages = [{"role": m["role"], "content": m["content"]} for m in history if m.get("role") in ("user", "assistant") and m.get("content")]
         messages.append({"role": "user", "content": user})
-        result = self._call(mode, ctx, None, language, on_text, messages=messages)
+        result = self._call(mode, ctx, None, language, on_text, messages=messages, deep=deep)
         result.partial_results = [f"{h.program}/{h.routine}" for h, _ in selected]
         return result
 
@@ -786,19 +915,19 @@ class LLMClient:
         )
 
     # ---- the actual API call -------------------------------------------------
-    def _call(self, mode: str, ctx: ProjectContext, user: Optional[str], language: Optional[str], on_text: OnText, messages: Optional[List[Dict[str, Any]]] = None) -> LLMResult:
-        model = self.config.model_for(mode)
+    def _call(self, mode: str, ctx: ProjectContext, user: Optional[str], language: Optional[str], on_text: OnText, messages: Optional[List[Dict[str, Any]]] = None, deep: bool = False) -> LLMResult:
+        model = self.config.model_for(mode, deep)
         system = self.system_blocks(ctx, language)
         if messages is None:
             messages = [{"role": "user", "content": user or ""}]
         context_tokens = sum(estimate_tokens(b["text"]) for b in system) + sum(estimate_tokens(str(m["content"])) for m in messages)
         params: Dict[str, Any] = {
             "model": model,
-            "max_tokens": self.config.max_output_tokens,
+            "max_tokens": self.config.output_cap(mode),
             "system": system,
             "messages": messages,
         }
-        effort = self.config.effort_for(mode)
+        effort = self.config.effort_for(mode, deep)
         if effort:
             params["output_config"] = {"effort": effort}
 
@@ -939,6 +1068,8 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - requer 
     ap.add_argument("--target", help="PROGRAMA ou PROGRAMA/ROTINA (modo aoi: NOME_DA_AOI)")
     ap.add_argument("--question", help="pergunta (modo chat)")
     ap.add_argument("--lang", choices=sorted(LANGUAGES), default=None)
+    ap.add_argument("--deep", action="store_true", help="explain/chat com o MODEL_DEEP (análise profunda)")
+    ap.add_argument("--estimate", action="store_true", help="só estima tokens, custo e créditos, sem chamar o modelo")
     args = ap.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         try:
@@ -961,12 +1092,20 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - requer 
     def echo(t: str) -> None:
         print(t, end="", flush=True)
 
+    if args.estimate:
+        try:
+            est = llm.estimate(args.mode, ctx, program=program, routine=routine, aoi=args.target if args.mode == "aoi" else None, question=args.question or "", deep=args.deep)
+        except LLMError as exc:
+            print(f"erro: {exc.message}", file=sys.stderr)
+            return 2
+        print(f"{est.mode}: {est.summary()} -> {est.credits} crédito(s) (1 crédito = US$ {cfg.credit_usd}, margem {cfg.markup}x)")
+        return 0
     try:
         if args.mode == "explain":
             if not program:
                 print("erro: --target PROGRAMA[/ROTINA]", file=sys.stderr)
                 return 2
-            r = llm.explain(ctx, program, routine, args.lang, on_text=echo)
+            r = llm.explain(ctx, program, routine, args.lang, on_text=echo, deep=args.deep)
         elif args.mode == "review":
             r = llm.review(ctx, program, routine, args.lang, on_text=echo)
         elif args.mode == "document":
@@ -980,7 +1119,7 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - requer 
             if not args.question:
                 print("erro: --question", file=sys.stderr)
                 return 2
-            r = llm.chat(ctx, [], args.question, args.lang, on_text=echo)
+            r = llm.chat(ctx, [], args.question, args.lang, on_text=echo, deep=args.deep)
     except LLMError as exc:
         print(f"\nerro ({exc.kind}): {exc.message}", file=sys.stderr)
         return 1

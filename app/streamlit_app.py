@@ -200,6 +200,9 @@ UI: Dict[str, Dict[str, str]] = {
         "col_safety": "Safety",
         "credits_low": "Créditos acabando: {balance} restante(s).",
         "credits_none": "Sem créditos. Peça mais ao administrador.",
+        "deep_toggle": "Análise profunda com {model}",
+        "deep_help": "Usa o modelo mais capaz também nesta ação: mais profundidade, mais créditos e mais tempo de resposta.",
+        "cost_detail": "{summary}",
         "disclaimer": "Análise automática: validar com o engenheiro responsável antes de qualquer alteração.",
     },
     "en": {
@@ -363,6 +366,9 @@ UI: Dict[str, Dict[str, str]] = {
         "col_safety": "Safety",
         "credits_low": "Running low on credits: {balance} left.",
         "credits_none": "No credits left. Ask the administrator for more.",
+        "deep_toggle": "Deep analysis with {model}",
+        "deep_help": "Uses the most capable model for this action too: more depth, more credits and a longer wait.",
+        "cost_detail": "{summary}",
         "disclaimer": "Automated analysis: validate with the responsible engineer before any change.",
     },
     "es": {
@@ -526,6 +532,9 @@ UI: Dict[str, Dict[str, str]] = {
         "col_safety": "Safety",
         "credits_low": "Se acaban los créditos: quedan {balance}.",
         "credits_none": "Sin créditos. Pida más al administrador.",
+        "deep_toggle": "Análisis profundo con {model}",
+        "deep_help": "Usa el modelo más capaz también en esta acción: más profundidad, más créditos y más tiempo de respuesta.",
+        "cost_detail": "{summary}",
         "disclaimer": "Análisis automático: validar con el ingeniero responsable antes de cualquier cambio.",
     },
 }
@@ -691,6 +700,9 @@ UI["zh-CN"] = {
     "col_safety": "Safety",
     "credits_low": "额度即将用完：剩余 {balance}。",
     "credits_none": "额度已用完。请向管理员申请。",
+    "deep_toggle": "使用 {model} 进行深度分析",
+    "deep_help": "此操作也使用最强模型：更深入，但消耗更多额度且等待更久。",
+    "cost_detail": "{summary}",
     "disclaimer": "自动分析：任何更改前请与负责工程师核实。",
 }
 
@@ -855,11 +867,15 @@ UI["hi"] = {
     "col_safety": "Safety",
     "credits_low": "क्रेडिट कम हो रहे हैं: {balance} शेष।",
     "credits_none": "क्रेडिट समाप्त। प्रशासक से और माँगें।",
+    "deep_toggle": "{model} के साथ गहन विश्लेषण",
+    "deep_help": "इस कार्रवाई में भी सबसे सक्षम मॉडल का उपयोग: अधिक गहराई, अधिक क्रेडिट और अधिक प्रतीक्षा।",
+    "cost_detail": "{summary}",
     "disclaimer": "स्वचालित विश्लेषण: किसी भी बदलाव से पहले ज़िम्मेदार इंजीनियर से सत्यापित करें।",
 }
 
 LANG_LABELS = {"pt-BR": "Português (BR)", "en": "English", "es": "Español", "zh-CN": "中文（简体）", "hi": "हिन्दी"}
 DOC_PROJECT_COST = 3
+NL2 = chr(10) + chr(10)
 
 
 def t(key: str, **kw: Any) -> str:
@@ -872,10 +888,32 @@ def t(key: str, **kw: Any) -> str:
 # Helpers (testáveis sem Streamlit)
 # ----------------------------------------------------------------------------
 def action_cost(mode: str, scope: str) -> int:
-    """Créditos por ação: documentação do projeto inteiro custa 3; o resto (inclusive AOI) 1."""
+    """Custo fixo de reserva (quando a camada LLM não consegue estimar): documentação do projeto inteiro 3; o resto 1."""
     if mode == "document" and scope == "project":
         return DOC_PROJECT_COST
     return 1
+
+
+def estimated_cost(llm: Optional[LLMClient], ctx: ProjectContext, mode: str, scope: str, program: Optional[str] = None, routine: Optional[str] = None,
+                   aoi: Optional[str] = None, deep: bool = False, question: str = "", history: Any = ()) -> Tuple[int, Optional[Any]]:
+    """(créditos, CostEstimate ou None). Usa o custo previsto pelo tamanho do contexto e pelo preço do
+    modelo; cai no custo fixo se a camada LLM não estiver disponível ou a estimativa falhar."""
+    if llm is None:
+        return action_cost(mode, scope), None
+    try:
+        p = None if scope == "project" else program
+        r = routine if scope == "routine" else None
+        est = llm.estimate(mode, ctx, program=p if mode != "explain" else program, routine=r, aoi=aoi, question=question, history=history, language=st.session_state.get("lang"), deep=deep)
+        return est.credits, est
+    except Exception:  # noqa: BLE001 - a estimativa nunca bloqueia a ação
+        return action_cost(mode, scope), None
+
+
+def llm_or_none() -> Optional[LLMClient]:
+    try:
+        return get_llm()
+    except LLMError:
+        return None
 
 
 def parse_upload(data: bytes, name: str = "upload.L5X") -> ProjectContext:
@@ -1126,8 +1164,9 @@ def findings_table(ctx: ProjectContext, program: Optional[str], routine: Optiona
     findings_panel(rows, key=f"f_{program or 'all'}_{routine or 'all'}".replace(" ", "_"), title=title, expanded=False)
 
 
-def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, program: Optional[str], routine: Optional[str], aoi: Optional[str] = None) -> None:
-    cost = action_cost(mode, scope)
+def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, program: Optional[str], routine: Optional[str], aoi: Optional[str] = None, deep: bool = False, cost: Optional[int] = None) -> None:
+    if cost is None:
+        cost, _ = estimated_cost(llm_or_none(), ctx, mode, scope, program, routine, aoi=aoi, deep=deep)
     code = st.session_state["code"]
     balance = store.balance(code)
     if balance < cost:
@@ -1150,7 +1189,7 @@ def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, p
     try:
         with st.spinner(t("working")):
             if mode == "explain":
-                result = llm.explain(ctx, program, routine if scope == "routine" else None, lang, on_text=on_text)  # type: ignore[arg-type]
+                result = llm.explain(ctx, program, routine if scope == "routine" else None, lang, on_text=on_text, deep=deep)  # type: ignore[arg-type]
                 title = f"{t('mode_explain')}: {program}" + (f"/{routine}" if scope == "routine" else "")
             elif mode == "review":
                 p = None if scope == "project" else program
@@ -1277,19 +1316,28 @@ def programs_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None
         reason = t("disabled_llm")
     elif scope == "routine" and (rt is None or rt.protected):
         reason = t("disabled_protected")
+    llm = llm_or_none() if llm_ok else None
+    deep = False
+    if llm is not None and llm.config.has_deep_option:
+        deep = st.toggle(t("deep_toggle", model=llm.config.model_deep), key="deep_explain", help=t("deep_help"))
     b1, b2, b3 = st.columns(3)
     explain_reason = reason or (t("disabled_project") if scope == "project" else None)
-    cost_explain = action_cost("explain", scope)
-    cost_review = action_cost("review", scope)
-    cost_doc = action_cost("document", scope if scope != "routine" else "program")
-    if b1.button(f"✨ {t('explain')} · {t('cost', n=cost_explain)}", disabled=explain_reason is not None, width="stretch", type="primary",
-                 help=explain_reason or t("explain_help")):
-        run_action("explain", scope, ctx, store, program, routine)
-    if b2.button(f"🔍 {t('review')} · {t('cost', n=cost_review)}", disabled=reason is not None, width="stretch", help=reason or t("review_help")):
-        run_action("review", scope, ctx, store, program, routine)
+    cost_explain, est_explain = (estimated_cost(llm, ctx, "explain", scope, program, routine, deep=deep) if explain_reason is None else (action_cost("explain", scope), None))
+    cost_review, est_review = (estimated_cost(llm, ctx, "review", scope, program, routine) if reason is None else (action_cost("review", scope), None))
+    doc_scope = "project" if scope == "project" else "program"
     doc_reason = t("disabled_llm") if not llm_ok else None
-    if b3.button(f"📄 {t('document')} · {t('cost', n=cost_doc)}", disabled=doc_reason is not None, width="stretch", help=doc_reason or t("document_help")):
-        run_action("document", "project" if scope == "project" else "program", ctx, store, program, routine)
+    cost_doc, est_doc = (estimated_cost(llm, ctx, "document", doc_scope, program, routine) if doc_reason is None else (action_cost("document", doc_scope), None))
+
+    def tip(reason_txt: Optional[str], help_key: str, est: Any) -> str:
+        base = reason_txt or t(help_key)
+        return f"{base}{NL2}{t('cost_detail', summary=est.summary())}" if est is not None else base
+
+    if b1.button(f"✨ {t('explain')} · {t('cost', n=cost_explain)}", disabled=explain_reason is not None, width="stretch", type="primary", help=tip(explain_reason, "explain_help", est_explain)):
+        run_action("explain", scope, ctx, store, program, routine, deep=deep, cost=cost_explain)
+    if b2.button(f"🔍 {t('review')} · {t('cost', n=cost_review)}", disabled=reason is not None, width="stretch", help=tip(reason, "review_help", est_review)):
+        run_action("review", scope, ctx, store, program, routine, cost=cost_review)
+    if b3.button(f"📄 {t('document')} · {t('cost', n=cost_doc)}", disabled=doc_reason is not None, width="stretch", help=tip(doc_reason, "document_help", est_doc)):
+        run_action("document", doc_scope, ctx, store, program, routine, cost=cost_doc)
 
     findings_table(ctx, None if scope == "project" else program, routine if scope == "routine" else None)
     st.divider()
@@ -1446,10 +1494,13 @@ def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
         st.caption(row["description"])
     if row["protected"]:
         st.info(t("aoi_protected_msg"))
-    cost = action_cost("aoi", "aoi")
     reason = t("disabled_llm") if not llm_ok else (t("disabled_protected") if row["protected"] else None)
-    if st.button(f"✨ {t('aoi_analyze')} · {t('cost', n=cost)}", disabled=reason is not None, help=reason or t("aoi_help"), key="btn_aoi", type="primary"):
-        run_action("aoi", "aoi", ctx, store, None, None, aoi=name)
+    cost, est = (estimated_cost(llm_or_none(), ctx, "aoi", "aoi", aoi=name) if reason is None else (action_cost("aoi", "aoi"), None))
+    help_txt = reason or t("aoi_help")
+    if est is not None:
+        help_txt = f"{help_txt}{NL2}{t('cost_detail', summary=est.summary())}"
+    if st.button(f"✨ {t('aoi_analyze')} · {t('cost', n=cost)}", disabled=reason is not None, help=help_txt, key="btn_aoi", type="primary"):
+        run_action("aoi", "aoi", ctx, store, None, None, aoi=name, cost=cost)
     with st.expander(t("aoi_report"), expanded=False):
         md = ctx.aoi_markdown(name)
         st.markdown(md)
@@ -1491,17 +1542,23 @@ def chat_area(ctx: ProjectContext, store: CreditStore) -> None:
             st.markdown(msg["content"])
             if msg.get("sources"):
                 st.caption(t("chat_sources", sources=msg["sources"]))
+    llm = llm_or_none()
+    deep = False
+    if llm is not None and llm.config.has_deep_option:
+        deep = st.toggle(t("deep_toggle", model=llm.config.model_deep), key="deep_chat", help=t("deep_help"))
+    if llm is not None:
+        typical, est = estimated_cost(llm, ctx, "chat", "chat", deep=deep, question="", history=history)
+        st.caption(t("cost", n=f"~{typical}") + (f" · {est.summary()}" if est is not None else ""))
     question = st.chat_input(t("chat_placeholder"))
     if not question:
         return
     code = st.session_state["code"]
-    if store.balance(code) < 1:
-        st.error(t("insufficient", cost=1, balance=store.balance(code)))
+    if llm is None:
+        st.error(t("disabled_llm"))
         return
-    try:
-        llm = get_llm()
-    except LLMError as exc:
-        st.error(exc.message)
+    cost, _ = estimated_cost(llm, ctx, "chat", "chat", deep=deep, question=question, history=history)
+    if store.balance(code) < cost:
+        st.error(t("insufficient", cost=cost, balance=store.balance(code)))
         return
     with st.chat_message("user"):
         st.markdown(question)
@@ -1515,7 +1572,7 @@ def chat_area(ctx: ProjectContext, store: CreditStore) -> None:
                 placeholder.markdown("".join(buf) + " ▌")
 
         try:
-            result = llm.chat(ctx, history, question, st.session_state.get("lang", "pt-BR"), on_text=on_text)
+            result = llm.chat(ctx, history, question, st.session_state.get("lang", "pt-BR"), on_text=on_text, deep=deep)
         except LLMError as exc:
             placeholder.empty()
             st.error(exc.message)
@@ -1524,7 +1581,7 @@ def chat_area(ctx: ProjectContext, store: CreditStore) -> None:
         sources = ", ".join(result.partial_results)
         if sources:
             st.caption(t("chat_sources", sources=sources))
-    store.debit(code, 1)
+    store.debit(code, cost)
     history.append({"role": "user", "content": question})
     history.append({"role": "assistant", "content": result.text, "sources": sources})
     st.rerun()

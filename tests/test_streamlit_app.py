@@ -104,7 +104,10 @@ def test_full_app_with_demo_file(env, monkeypatch):
     routine_box = next(s for s in at.selectbox if s.label == UI["pt-BR"]["routine"])
     assert routine_box.format_func("MainRoutine").startswith("MainRoutine · RLL · 12 rungs · main")
     buttons = [b.label for b in at.button]
-    assert any(UI["pt-BR"]["explain"] in b and "1 crédito" in b for b in buttons)
+    assert any(UI["pt-BR"]["explain"] in b and "crédito" in b for b in buttons)
+    explain_btn = next(b for b in at.button if UI["pt-BR"]["explain"] in b.label)
+    assert int(explain_btn.label.split("custo: ")[1].split(" ")[0]) >= 1  # custo estimado pelo contexto (modelo fake = preço máximo)
+    assert any(UI["pt-BR"]["deep_toggle"].split(" {")[0] in tg.label for tg in at.toggle)  # opção de análise profunda
     assert any(UI["pt-BR"]["review"] in b for b in buttons) and any(UI["pt-BR"]["document"] in b for b in buttons)
     assert any(UI["pt-BR"]["results_empty"] in c.value for c in at.caption)
     # demais áreas, via navegação persistida na sessão
@@ -128,6 +131,19 @@ def test_helpers():
     assert action_cost("review", "project") == 1
     assert action_cost("document", "program") == 1
     assert action_cost("document", "project") == 3
+    # custo estimado: usa o LLMClient quando disponível, senão o custo fixo
+    from app.llm import LLMClient, LLMConfig
+    from app.streamlit_app import estimated_cost
+    from fake_anthropic import FakeAnthropic
+
+    ctx = parse_upload(open(MINIMAL, "rb").read(), "minimal.l5x")
+    assert estimated_cost(None, ctx, "review", "project") == (1, None)
+    llm = LLMClient(LLMConfig(model_fast="fast", model_deep="deep", log_path=None, prices={"fast": (2, 10, 0.2), "deep": (10, 50, 0.25)}), client=FakeAnthropic())
+    credits, est = estimated_cost(llm, ctx, "explain", "routine", "MainProgram", "MainRoutine")
+    assert est is not None and est.model == "fast" and credits == est.credits >= 1
+    credits_deep, est_deep = estimated_cost(llm, ctx, "explain", "routine", "MainProgram", "MainRoutine", deep=True)
+    assert est_deep.model == "deep" and credits_deep >= credits
+    assert estimated_cost(llm, ctx, "explain", "routine", "Nope", "x") == (1, None)  # erro na estimativa -> custo fixo
     with open(MINIMAL, "rb") as fh:
         data = fh.read()
     ctx = parse_upload(data, "minimal.l5x")

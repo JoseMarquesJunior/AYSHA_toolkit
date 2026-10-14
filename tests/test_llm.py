@@ -189,6 +189,28 @@ def test_refusal_and_truncation(pctx, tmp_path):
     assert r.refusal and "recusou" in r.text and "motivo" in r.text
     r = llm.explain(pctx, "MainProgram", "MainRoutine")
     assert r.truncated and "limite de tokens" in r.text
+    assert r.calls == 3  # 1 chamada + 2 continuações (padrão), todas cortadas
+
+
+def test_truncated_answer_is_continued(pctx, tmp_path):
+    def responder(params, n):
+        if n == 1:
+            return {"text": "## Resumo\nprimeira parte", "stop_reason": "max_tokens", "usage": {"output_tokens": 10}}
+        return {"text": " e o final.", "stop_reason": "end_turn", "usage": {"output_tokens": 5}}
+
+    llm, fake = make(tmp_path, responder=responder)
+    chunks = []
+    r = llm.explain(pctx, "MainProgram", "MainRoutine", on_text=chunks.append)
+    assert r.text == "## Resumo\nprimeira parte e o final." and "".join(chunks) == r.text
+    assert not r.truncated and r.calls == 2 and r.usage.output_tokens == 15
+    msgs = fake.calls[1]["messages"]
+    assert [m["role"] for m in msgs] == ["user", "assistant", "user"]
+    assert msgs[1]["content"] == "## Resumo\nprimeira parte" and "Continue exatamente de onde parou" in msgs[2]["content"]
+    assert fake.calls[0]["max_tokens"] == 64_000
+    # continuações desligadas: devolve o corte com o aviso
+    llm, fake = make(tmp_path, responder=responder, max_continuations=0)
+    r = llm.explain(pctx, "MainProgram", "MainRoutine")
+    assert r.truncated and r.calls == 1 and "limite de tokens" in r.text
 
 
 def test_api_errors_are_mapped(pctx, tmp_path):

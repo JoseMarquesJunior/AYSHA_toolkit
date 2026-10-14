@@ -85,7 +85,8 @@ class LLMConfig:
     effort_fast: Optional[str] = None  # low | medium | high | xhigh | max (opcional)
     effort_deep: Optional[str] = None
     max_context_tokens: int = 60_000
-    max_output_tokens: int = 16_000
+    max_output_tokens: int = 64_000  # streaming: o SDK aceita até 128k sem timeout
+    max_continuations: int = 2  # pedidos de "continue" quando a resposta para por max_tokens
     log_path: Optional[str] = "llm_calls.csv"
     language: str = "pt-BR"
 
@@ -130,7 +131,8 @@ class LLMConfig:
             effort_fast=get("LLM_EFFORT_FAST"),
             effort_deep=get("LLM_EFFORT_DEEP"),
             max_context_tokens=int(get("MAX_CONTEXT_TOKENS", "60000") or 60000),
-            max_output_tokens=int(get("MAX_OUTPUT_TOKENS", "16000") or 16000),
+            max_output_tokens=int(get("MAX_OUTPUT_TOKENS", "64000") or 64000),
+            max_continuations=int(get("LLM_MAX_CONTINUATIONS", "2") or 0),
             log_path=get("LLM_LOG_PATH", "llm_calls.csv"),
             language=language,
         )
@@ -697,9 +699,43 @@ class LLMClient:
         if effort:
             params["output_config"] = {"effort": effort}
 
+        total_usage = Usage()
+        total_latency = 0
+        calls = 0
+        parts: List[str] = []
+        convo = list(messages)
+        while True:
+            params["messages"] = convo
+            text, message, usage, latency_ms = self._stream_once(mode, model, params, context_tokens, on_text)
+            calls += 1
+            total_usage.add(usage)
+            total_latency += latency_ms
+            parts.append(text)
+            stop_reason = getattr(message, "stop_reason", None)
+            if stop_reason != "max_tokens" or calls > self.config.max_continuations:
+                break
+            # a resposta parou pelo limite de saída: pede para continuar de onde parou
+            convo = convo + [
+                {"role": "assistant", "content": text},
+                {"role": "user", "content": self.CONTINUE_PROMPT},
+            ]
+        text = "".join(parts)
+        refusal = stop_reason == "refusal"
+        truncated = stop_reason == "max_tokens"
+        if refusal:
+            details = getattr(message, "stop_details", None)
+            why = getattr(details, "explanation", None) if details else None
+            text = (text + "\n\n" if text else "") + "O modelo recusou concluir esta resposta" + (f": {why}" if why else ".") + " Tente reformular o pedido ou reduzir o escopo."
+        if truncated:
+            text += f"\n\n*(resposta interrompida por limite de tokens de saída após {calls} chamada(s); aumente MAX_OUTPUT_TOKENS / LLM_MAX_CONTINUATIONS ou reduza o escopo)*"
+        return LLMResult(text=text, mode=mode, model=model, usage=total_usage, latency_ms=total_latency, calls=calls, stop_reason=stop_reason, truncated=truncated, refusal=refusal, context_tokens=context_tokens)
+
+    CONTINUE_PROMPT = "A resposta anterior foi cortada pelo limite de tokens de saída. Continue exatamente de onde parou, sem repetir o que já foi escrito e mantendo a mesma estrutura de seções."
+
+    def _stream_once(self, mode: str, model: str, params: Dict[str, Any], context_tokens: int, on_text: OnText) -> Tuple[str, Any, Usage, int]:
+        """Uma chamada em streaming; devolve (texto, mensagem final, uso, latência ms)."""
         t0 = time.perf_counter()
         text_parts: List[str] = []
-        error: Optional[str] = None
         try:
             with self.client.messages.stream(**params) as stream:
                 for delta in stream.text_stream:
@@ -708,31 +744,20 @@ class LLMClient:
                         on_text(delta)
                 message = stream.get_final_message()
         except Exception as exc:  # noqa: BLE001 - convertido em LLMError abaixo
-            error = type(exc).__name__
-            self._log(mode, model, Usage(), int((time.perf_counter() - t0) * 1000), context_tokens, status=error)
+            self._log(mode, model, Usage(), int((time.perf_counter() - t0) * 1000), context_tokens, status=type(exc).__name__)
             raise self._map_error(exc) from exc
         latency_ms = int((time.perf_counter() - t0) * 1000)
-
         usage = Usage(
             input_tokens=getattr(message.usage, "input_tokens", 0) or 0,
             output_tokens=getattr(message.usage, "output_tokens", 0) or 0,
             cache_read_tokens=getattr(message.usage, "cache_read_input_tokens", 0) or 0,
             cache_write_tokens=getattr(message.usage, "cache_creation_input_tokens", 0) or 0,
         )
-        stop_reason = getattr(message, "stop_reason", None)
         text = "".join(text_parts)
         if not text:
             text = "".join(getattr(b, "text", "") for b in getattr(message, "content", []) if getattr(b, "type", "") == "text")
-        refusal = stop_reason == "refusal"
-        truncated = stop_reason == "max_tokens"
-        if refusal:
-            details = getattr(message, "stop_details", None)
-            why = getattr(details, "explanation", None) if details else None
-            text = (text + "\n\n" if text else "") + "O modelo recusou concluir esta resposta" + (f": {why}" if why else ".") + " Tente reformular o pedido ou reduzir o escopo."
-        if truncated:
-            text += "\n\n*(resposta interrompida por limite de tokens de saída; aumente MAX_OUTPUT_TOKENS ou reduza o escopo)*"
-        self._log(mode, model, usage, latency_ms, context_tokens, status=stop_reason or "ok")
-        return LLMResult(text=text, mode=mode, model=model, usage=usage, latency_ms=latency_ms, calls=1, stop_reason=stop_reason, truncated=truncated, refusal=refusal, context_tokens=context_tokens)
+        self._log(mode, model, usage, latency_ms, context_tokens, status=getattr(message, "stop_reason", None) or "ok")
+        return text, message, usage, latency_ms
 
     # ---- errors ---------------------------------------------------------------
     @staticmethod

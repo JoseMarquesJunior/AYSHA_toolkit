@@ -86,7 +86,8 @@ Configuração: copie `.env.example` para `.env` (ou `.streamlit/secrets.toml.ex
 `MODEL_DEEP` (revisar, documentar). Os IDs de modelo **não** ficam no código: consulte
 https://docs.claude.com/en/docs/about-claude/models. Variáveis opcionais: `LLM_EFFORT_FAST` /
 `LLM_EFFORT_DEEP` (`low`…`max`; deixe vazio para modelos que não aceitam `output_config.effort`),
-`MAX_CONTEXT_TOKENS` (padrão 60000), `MAX_OUTPUT_TOKENS` (16000), `APP_LANGUAGE` (`pt-BR`, `en`, `es`),
+`MAX_CONTEXT_TOKENS` (padrão 60000), `MAX_OUTPUT_TOKENS` (64000; até 128000 com streaming),
+`LLM_MAX_CONTINUATIONS` (2: quantas vezes o app pede "continue" quando a resposta para por `max_tokens`), `APP_LANGUAGE` (`pt-BR`, `en`, `es`),
 `LLM_LOG_PATH` (CSV de métricas; vazio desativa).
 
 Teste manual com chave real:

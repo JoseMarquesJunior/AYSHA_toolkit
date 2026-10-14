@@ -13,9 +13,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from lxml import etree
 
 from .model import (
-    Aoi, AoiCall, AoiParameter, Controller, DanglingRef, DataType, DataTypeMember, FbdNode, Finding, Module,
+    Aoi, AoiCall, AoiParameter, Controller, DanglingRef, DataType, DataTypeMember, FbdNode, Finding, IoChannel, Module,
     Program, Routine, Rung, STLine, Tag, TagRef, Task, READ, WRITE, READWRITE,
 )
+from .l5k import L5KError, Layouts, merge, parse_l5k, validate
 from .rung_text import parse_rung, RungSyntaxError, split_tag_path
 from .st_text import extract_st_refs, extract_st_calls
 
@@ -28,6 +29,8 @@ _PARSER = etree.XMLParser(huge_tree=True, remove_blank_text=True, resolve_entiti
 
 # Structures whose values we keep (for the "timer without preset" rule).
 _PRESET_BEARING_BASE = {"TIMER", "COUNTER"}
+# Other types whose values are kept (alarm configuration for the alarm list).
+_KEEP_VALUE_TYPES = {"ALARM_DIGITAL", "ALARM_ANALOG", "ALARM"}
 
 
 # --------------------------------------------------------------------------
@@ -47,7 +50,10 @@ def _bool(value: Optional[str]) -> bool:
     return (value or "").strip().lower() == "true"
 
 
-def _value(raw: Optional[str]) -> Any:
+_INT_BITS = {"SINT": 8, "USINT": 8, "INT": 16, "UINT": 16, "DINT": 32, "UDINT": 32, "LINT": 64, "ULINT": 64}
+
+
+def _value(raw: Optional[str], data_type: Optional[str] = None) -> Any:
     if raw is None:
         return None
     s = raw.strip()
@@ -55,6 +61,17 @@ def _value(raw: Optional[str]) -> Any:
         return int(s)
     except ValueError:
         pass
+    if "#" in s and s[0].isdigit():  # radix literals: 2#0000_0101, 16#FF, 8#17
+        radix, _, digits = s.partition("#")
+        try:
+            v = int(digits.replace("_", ""), int(radix))
+        except ValueError:
+            v = None
+        if v is not None:
+            bits = _INT_BITS.get((data_type or "").upper())
+            if bits and not (data_type or "").upper().startswith("U") and v >= 1 << (bits - 1):
+                v -= 1 << bits  # bit pattern of a signed integer (matches the L5K representation)
+            return v
     try:
         return float(s)
     except ValueError:
@@ -65,7 +82,7 @@ def _decorated_to_dict(el: etree._Element) -> Any:
     """Convert a Decorated <Data> subtree into nested dict/list values."""
     tag = el.tag
     if tag in ("DataValueMember", "DataValue"):
-        return _value(el.get("Value"))
+        return _value(el.get("Value"), el.get("DataType"))
     if tag in ("Structure", "StructureMember"):
         return {m.get("Name"): _decorated_to_dict(m) for m in el if m.get("Name")}
     if tag in ("Array", "ArrayMember"):
@@ -107,6 +124,9 @@ class _L5XParser:
         self.findings: List[Finding] = []
         self.aoi_usages: Dict[str, List[str]] = {}
         self.bearing_types: Set[str] = set()
+        self.layouts: Optional[Layouts] = None  # L5K decoding of AOI instances (locals)
+        self.l5k_mismatch: Dict[str, str] = {}  # AOI name -> first bad member (reported once)
+        self.l5k_stats: Dict[str, int] = {"decoded": 0, "rejected": 0}
 
     # ---- entry -----------------------------------------------------------
     def parse_root(self, root: etree._Element) -> Controller:
@@ -143,6 +163,7 @@ class _L5XParser:
         self.bearing_types = _preset_bearing_types(ctrl.data_types, {a.name for a in ctrl.aois})
         for a, aoi in zip(aoi_els, ctrl.aois):
             self._aoi_body(a, aoi)
+        self.layouts = Layouts(ctrl)
 
         ctrl.tags = [self._tag(t, "controller") for t in ctrl_el.iterfind("Tags/Tag")]
         ctrl.programs = [self._program(p) for p in ctrl_el.iterfind("Programs/Program")]
@@ -168,19 +189,52 @@ class _L5XParser:
                 dimension=int(m.get("Dimension") or 0),
                 description=_text(m, "Description"),
                 hidden=_bool(m.get("Hidden")),
+                target=m.get("Target"),
+                bit_number=int(m.get("BitNumber")) if (m.get("BitNumber") or "").isdigit() else None,
             )
             for m in el.iterfind("Members/Member")
         ]
         return DataType(name=el.get("Name") or "?", family=el.get("Family"), class_=el.get("Class"), description=_text(el, "Description"), members=members)
 
     def _module(self, el: etree._Element) -> Module:
-        return Module(
+        slot = None
+        for port in el.iterfind("Ports/Port"):
+            if _bool(port.get("Upstream")) and port.get("Address") is not None:
+                slot = port.get("Address")
+                break
+        mod = Module(
             name=el.get("Name") or "?",
             catalog=el.get("CatalogNumber"),
             parent=el.get("ParentModule"),
             description=_text(el, "Description"),
             inhibited=_bool(el.get("Inhibited")),
+            slot=slot, major=el.get("Major"), minor=el.get("Minor"),
         )
+        base = mod.io_base
+        if base is None:
+            return mod
+        for conn in el.iterfind("Communications/Connections/Connection"):
+            for tag_el, direction in ((conn.find("InputTag"), "I"), (conn.find("OutputTag"), "O")):
+                if tag_el is None:
+                    continue
+                units = {u.get("Operand"): (u.text or "").strip() for u in tag_el.iterfind("EngineeringUnits/EngineeringUnit") if u.get("Operand")}
+                mins = {m.get("Operand"): _value(m.text) for m in tag_el.iterfind("Mins/Min") if m.get("Operand")}
+                maxes = {m.get("Operand"): _value(m.text) for m in tag_el.iterfind("Maxes/Max") if m.get("Operand")}
+                seen: Set[str] = set()
+                for c in tag_el.iterfind("Comments/Comment"):
+                    operand = c.get("Operand")
+                    if not operand:
+                        continue
+                    seen.add(operand.lower())
+                    mod.channels.append(IoChannel(
+                        module=mod.name, direction=direction, operand=operand, path=f"{base}:{direction}{operand}",
+                        description=(c.text or "").strip() or None, engineering_unit=units.get(operand) or None,
+                        min=mins.get(operand), max=maxes.get(operand),
+                    ))
+                for operand, unit in units.items():  # unit without comment: still a configured channel
+                    if operand.lower() not in seen and unit:
+                        mod.channels.append(IoChannel(module=mod.name, direction=direction, operand=operand, path=f"{base}:{direction}{operand}", engineering_unit=unit, min=mins.get(operand), max=maxes.get(operand)))
+        return mod
 
     def _task(self, el: etree._Element) -> Task:
         return Task(
@@ -212,9 +266,60 @@ class _L5XParser:
         )
         # values are kept for timer/counter bearing tags, AOI locals/params and AOI instances
         # (the instance tag holds the configuration of every non-required parameter and local)
-        if keep_values or data_type in self.bearing_types or data_type.upper() in self.bearing_types or data_type.lower() in self.aoi_usages:
+        if keep_values or data_type in self.bearing_types or data_type.upper() in self.bearing_types or data_type.upper() in _KEEP_VALUE_TYPES or data_type.lower() in self.aoi_usages:
             tag.values = self._decorated(el)
+            if data_type.lower() in self.aoi_usages and self.layouts is not None:
+                tag.values = self._with_l5k_locals(el, tag)
         return tag
+
+    def _with_l5k_locals(self, el: etree._Element, tag: Tag) -> Any:
+        """Decorated data of an AOI instance has only the parameters; decode the L5K
+        data to add the local tags, keeping the instance only if every decorated
+        parameter matches the decoded one (self-validation of the layout rules)."""
+        aoi = self.layouts.aois.get(tag.data_type.lower()) if self.layouts else None
+        decorated = tag.values
+        if aoi is None:
+            return decorated
+        raw = None
+        for d in el.iterfind("Data"):
+            if d.get("Format") == "L5K" and d.text:
+                raw = d.text
+                break
+        if raw is None:
+            return decorated
+        try:
+            parsed = parse_l5k(raw)
+        except L5KError:
+            return decorated
+        try:
+            if tag.dimensions and isinstance(parsed, list) and "," not in tag.dimensions:
+                decoded: Any = {f"[{i}]": self.layouts.decode_aoi(v, aoi) if isinstance(v, list) else v for i, v in enumerate(parsed)}
+            elif isinstance(parsed, list):
+                decoded = self.layouts.decode_aoi(parsed, aoi)
+            else:
+                return decorated
+        except (TypeError, IndexError, ValueError):
+            return decorated
+        if isinstance(decorated, dict) and isinstance(decoded, dict):
+            samples = [(decorated, decoded)] if not tag.dimensions else [(decorated.get(k), decoded.get(k)) for k in decorated]
+            for dec_el, dec_l5k in samples:
+                if isinstance(dec_el, dict) and isinstance(dec_l5k, dict):
+                    bad = validate(dec_l5k, dec_el)
+                    if bad is not None:
+                        self.l5k_stats["rejected"] += 1
+                        if aoi.name not in self.l5k_mismatch:
+                            self.l5k_mismatch[aoi.name] = bad
+                            self.findings.append(Finding(
+                                rule="l5k_decode_mismatch", severity="info", program=f"aoi:{aoi.name}", tag=tag.name,
+                                message=f"Dados L5K da instância '{tag.name}' ({aoi.name}) não batem com o Decorated no membro '{bad}': tags locais dessa AOI não foram lidas.",
+                            ))
+                        return decorated
+            self.l5k_stats["decoded"] += 1
+            return merge(decorated, decoded)
+        if decorated is None:
+            self.l5k_stats["decoded"] += 1
+            return decoded
+        return decorated
 
     @staticmethod
     def _decorated(el: etree._Element) -> Any:
@@ -241,6 +346,7 @@ class _L5XParser:
                 description=_text(p, "Description"),
                 default=self._decorated(p),
                 external_access=p.get("ExternalAccess"),
+                alias_for=p.get("AliasFor"),
             )
             for p in el.iterfind("Parameters/Parameter")
         ]

@@ -27,7 +27,11 @@ import streamlit as st  # noqa: E402
 
 from app.credits import CreditStore  # noqa: E402
 from app.llm import LANGUAGES, ConfigError, LLMClient, LLMConfig, LLMError, ProjectContext  # noqa: E402
-from l5x_core.aoi_config import to_csv  # noqa: E402
+from l5x_core.aoi_config import table_csv, tables_xlsx_bytes, to_csv  # noqa: E402
+from l5x_core.alarms import alarm_summary  # noqa: E402
+from l5x_core.diff import DIFF_HEADER, diff_markdown, diff_rows  # noqa: E402
+from l5x_core.drift import DRIFT_HEADER, LIBRARY_HEADER  # noqa: E402
+from l5x_core.io_list import channel_summary  # noqa: E402
 from l5x_core.model import SEVERITIES  # noqa: E402
 from l5x_core.parser import L5XError, parse_file  # noqa: E402
 
@@ -116,6 +120,37 @@ UI: Dict[str, Dict[str, str]] = {
         "export_csv": "Baixar CSV desta AOI",
         "export_preview": "{rows} instância(s) × {cols} coluna(s) nesta AOI",
         "export_none": "Nenhuma instância com dados para exportar.",
+        "nav_compare": "Comparar",
+        "compare_help": "Envie uma segunda exportação do mesmo projeto para ver o que mudou (lógica, tags, AOIs, configuração armazenada, findings), ou um L5X de outro PLC para comparar a biblioteca de AOIs e UDTs. Sem custo.",
+        "compare_upload": "Segundo arquivo .L5X",
+        "compare_none": "Envie o segundo arquivo para comparar.",
+        "compare_direction": "O segundo arquivo é",
+        "dir_other_old": "a versão antiga (o projeto carregado é o novo)",
+        "dir_other_new": "a versão nova (o projeto carregado é o antigo)",
+        "compare_summary": "{n} diferença(s): {detail}",
+        "compare_empty": "Nenhuma diferença semântica entre os dois arquivos.",
+        "compare_download_md": "Baixar diff (Markdown)",
+        "compare_download_csv": "Baixar diff (CSV)",
+        "library_title": "Drift de biblioteca entre PLCs (AOIs e UDTs)",
+        "library_same": "Biblioteca idêntica nos dois arquivos.",
+        "drift_title": "Drift entre instâncias ({n} membro(s) fora do padrão)",
+        "drift_help": "Para cada AOI, membros de configuração em que a grande maioria das instâncias compartilha um valor e algumas divergem (ex.: uma válvula com tempo de curso diferente das demais).",
+        "drift_none": "Nenhum desvio em relação à maioria.",
+        "drift_download": "Baixar drift (CSV)",
+        "alarms_title": "Lista de alarmes ({n})",
+        "alarms_help": "Alarmes nativos (ALMD/ALMA) e instâncias de AOIs de alarme, inclusive aninhadas em outras AOIs, com severidade e configuração, para racionalização (ISA 18.2).",
+        "alarm_total": "Alarmes",
+        "alarm_disabled": "Desabilitados",
+        "alarm_nodesc": "Sem descrição",
+        "alarm_unused": "Sem uso na lógica",
+        "alarms_download_xlsx": "Baixar alarmes (Excel)",
+        "alarms_download_csv": "Baixar alarmes (CSV)",
+        "io_title": "Instrumentos e canais de I/O ({inst} instrumentos, {ch} canais)",
+        "io_help": "Instrumentos = instâncias de AOI com unidade, range ou canal de I/O ligado; canais = pontos comentados nos módulos, com uso na lógica. Ligação instrumento-canal é aproximada.",
+        "io_instruments": "Instrumentos",
+        "io_channels": "Canais de I/O",
+        "io_summary": "{spare} spare · {unused} sem uso · {nodesc} sem descrição",
+        "io_download": "Baixar instrumentos e I/O (Excel)",
         "nav_programs": "Programas e rotinas",
         "nav_aois": "AOIs",
         "nav_diag": "Diagnóstico",
@@ -248,6 +283,37 @@ UI: Dict[str, Dict[str, str]] = {
         "export_csv": "Download CSV for this AOI",
         "export_preview": "{rows} instance(s) × {cols} column(s) in this AOI",
         "export_none": "No instance with data to export.",
+        "nav_compare": "Compare",
+        "compare_help": "Upload a second export of the same project to see what changed (logic, tags, AOIs, stored configuration, findings), or another PLC's L5X to compare the AOI/UDT library. Free.",
+        "compare_upload": "Second .L5X file",
+        "compare_none": "Upload the second file to compare.",
+        "compare_direction": "The second file is",
+        "dir_other_old": "the old version (the loaded project is the new one)",
+        "dir_other_new": "the new version (the loaded project is the old one)",
+        "compare_summary": "{n} difference(s): {detail}",
+        "compare_empty": "No semantic difference between the two files.",
+        "compare_download_md": "Download diff (Markdown)",
+        "compare_download_csv": "Download diff (CSV)",
+        "library_title": "Library drift between PLCs (AOIs and UDTs)",
+        "library_same": "Identical library in both files.",
+        "drift_title": "Instance drift ({n} member(s) off the common value)",
+        "drift_help": "For each AOI, configuration members where the large majority of instances share one value and a few deviate (e.g. one valve with a different travel time).",
+        "drift_none": "No deviation from the majority.",
+        "drift_download": "Download drift (CSV)",
+        "alarms_title": "Alarm list ({n})",
+        "alarms_help": "Native alarms (ALMD/ALMA) and alarm AOI instances, including those nested in other AOIs, with severity and configuration, for rationalization (ISA 18.2).",
+        "alarm_total": "Alarms",
+        "alarm_disabled": "Disabled",
+        "alarm_nodesc": "No description",
+        "alarm_unused": "Unused in logic",
+        "alarms_download_xlsx": "Download alarms (Excel)",
+        "alarms_download_csv": "Download alarms (CSV)",
+        "io_title": "Instruments and I/O channels ({inst} instruments, {ch} channels)",
+        "io_help": "Instruments = AOI instances with a unit, a range or a linked I/O channel; channels = commented module points with their usage. Instrument-to-channel linking is approximate.",
+        "io_instruments": "Instruments",
+        "io_channels": "I/O channels",
+        "io_summary": "{spare} spare · {unused} unused · {nodesc} without description",
+        "io_download": "Download instruments and I/O (Excel)",
         "nav_programs": "Programs and routines",
         "nav_aois": "AOIs",
         "nav_diag": "Diagnostics",
@@ -380,6 +446,37 @@ UI: Dict[str, Dict[str, str]] = {
         "export_csv": "Descargar CSV de esta AOI",
         "export_preview": "{rows} instancia(s) × {cols} columna(s) en esta AOI",
         "export_none": "Ninguna instancia con datos para exportar.",
+        "nav_compare": "Comparar",
+        "compare_help": "Suba una segunda exportación del mismo proyecto para ver qué cambió (lógica, tags, AOIs, configuración guardada, findings), o un L5X de otro PLC para comparar la biblioteca de AOIs y UDTs. Sin costo.",
+        "compare_upload": "Segundo archivo .L5X",
+        "compare_none": "Suba el segundo archivo para comparar.",
+        "compare_direction": "El segundo archivo es",
+        "dir_other_old": "la versión antigua (el proyecto cargado es el nuevo)",
+        "dir_other_new": "la versión nueva (el proyecto cargado es el antiguo)",
+        "compare_summary": "{n} diferencia(s): {detail}",
+        "compare_empty": "Ninguna diferencia semántica entre los dos archivos.",
+        "compare_download_md": "Descargar diff (Markdown)",
+        "compare_download_csv": "Descargar diff (CSV)",
+        "library_title": "Drift de biblioteca entre PLCs (AOIs y UDTs)",
+        "library_same": "Biblioteca idéntica en los dos archivos.",
+        "drift_title": "Drift entre instancias ({n} miembro(s) fuera del patrón)",
+        "drift_help": "Para cada AOI, miembros de configuración en que la gran mayoría de las instancias comparte un valor y algunas divergen (p. ej. una válvula con tiempo de carrera distinto).",
+        "drift_none": "Ningún desvío respecto a la mayoría.",
+        "drift_download": "Descargar drift (CSV)",
+        "alarms_title": "Lista de alarmas ({n})",
+        "alarms_help": "Alarmas nativas (ALMD/ALMA) e instancias de AOIs de alarma, incluso anidadas en otras AOIs, con severidad y configuración, para racionalización (ISA 18.2).",
+        "alarm_total": "Alarmas",
+        "alarm_disabled": "Deshabilitadas",
+        "alarm_nodesc": "Sin descripción",
+        "alarm_unused": "Sin uso en la lógica",
+        "alarms_download_xlsx": "Descargar alarmas (Excel)",
+        "alarms_download_csv": "Descargar alarmas (CSV)",
+        "io_title": "Instrumentos y canales de I/O ({inst} instrumentos, {ch} canales)",
+        "io_help": "Instrumentos = instancias de AOI con unidad, rango o canal de I/O ligado; canales = puntos comentados en los módulos con su uso. La ligación instrumento-canal es aproximada.",
+        "io_instruments": "Instrumentos",
+        "io_channels": "Canales de I/O",
+        "io_summary": "{spare} spare · {unused} sin uso · {nodesc} sin descripción",
+        "io_download": "Descargar instrumentos e I/O (Excel)",
         "nav_programs": "Programas y rutinas",
         "nav_aois": "AOIs",
         "nav_diag": "Diagnóstico",
@@ -516,8 +613,8 @@ def load_project(digest: str, _data: bytes, name: str) -> ProjectContext:
 # Apresentação
 # ----------------------------------------------------------------------------
 SEV_ICON = {"error": "🔴", "warning": "🟠", "info": "🔵"}
-NAV = ("programs", "aois", "diag", "chat")
-NAV_ICON = {"programs": "📘", "aois": "🧩", "diag": "🩺", "chat": "💬"}
+NAV = ("programs", "aois", "diag", "compare", "chat")
+NAV_ICON = {"programs": "📘", "aois": "🧩", "diag": "🩺", "compare": "🔀", "chat": "💬"}
 AREA_MODES = {"programs": ("explain", "review", "document"), "aois": ("aoi",)}
 
 
@@ -892,6 +989,104 @@ def diag_area(ctx: ProjectContext) -> None:
         col.metric(f"{SEV_ICON[s]} {s}", sev.get(s, 0))
     findings_panel(ctx.findings, key="project", title=t("findings_title") + f" ({len(ctx.findings)})", expanded=True)
     unconnected_area(ctx)
+    drift_area(ctx)
+    alarms_area(ctx)
+    io_area(ctx)
+
+
+def drift_area(ctx: ProjectContext) -> None:
+    rows = ctx.drift_rows()
+    with st.expander(t("drift_title", n=len(rows)), expanded=False):
+        st.caption(t("drift_help"))
+        if not rows:
+            st.caption(t("drift_none"))
+            return
+        st.dataframe(rows[:500], width="stretch", hide_index=True)
+        st.download_button(t("drift_download"), data=table_csv(DRIFT_HEADER, rows).encode("utf-8-sig"), file_name=f"{ctx.ctrl.name}_drift.csv".replace(" ", "_"), mime="text/csv", key="dl_drift")
+
+
+def alarms_area(ctx: ProjectContext) -> None:
+    header, rows = ctx.alarm_table()
+    with st.expander(t("alarms_title", n=len(rows)), expanded=False):
+        st.caption(t("alarms_help"))
+        s = alarm_summary(rows)
+        c = st.columns(4)
+        c[0].metric(t("alarm_total"), s["total"])
+        c[1].metric(t("alarm_disabled"), s["desabilitados"])
+        c[2].metric(t("alarm_nodesc"), s["sem_descricao"])
+        c[3].metric(t("alarm_unused"), s["sem_uso"])
+        if s["por_severidade"]:
+            st.caption(" · ".join(f"{k}: {v}" for k, v in sorted(s["por_severidade"].items())))
+        if rows:
+            st.dataframe([{k: r.get(k, "") for k in header} for r in rows[:1000]], width="stretch", hide_index=True)
+            c1, c2 = st.columns(2)
+            c1.download_button(t("alarms_download_csv"), data=table_csv(header, rows).encode("utf-8-sig"), file_name=f"{ctx.ctrl.name}_alarmes.csv".replace(" ", "_"), mime="text/csv", key="dl_alm_csv")
+            c2.download_button(t("alarms_download_xlsx"), data=tables_xlsx_bytes([("Alarmes", header, rows)]), file_name=f"{ctx.ctrl.name}_alarmes.xlsx".replace(" ", "_"),
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_alm_xlsx")
+
+
+def io_area(ctx: ProjectContext) -> None:
+    tables = ctx.io_tables()
+    inst, chans = tables[0][2], tables[1][2]
+    with st.expander(t("io_title", inst=len(inst), ch=len(chans)), expanded=False):
+        st.caption(t("io_help"))
+        s = channel_summary(chans)
+        st.caption(t("io_summary", spare=s["spare"], unused=s["sem_uso"], nodesc=s["sem_descricao"]))
+        st.markdown(f"**{t('io_instruments')}**")
+        st.dataframe(inst[:1000], width="stretch", hide_index=True)
+        st.markdown(f"**{t('io_channels')}**")
+        st.dataframe(chans[:1000], width="stretch", hide_index=True)
+        st.download_button(t("io_download"), data=tables_xlsx_bytes(tables), file_name=f"{ctx.ctrl.name}_instrumentos_io.xlsx".replace(" ", "_"),
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_io")
+
+
+def compare_area(ctx: ProjectContext) -> None:
+    st.caption(t("compare_help"))
+    other_file = st.file_uploader(t("compare_upload"), type=["l5x", "L5X"], accept_multiple_files=False, key="upload_other")
+    other: Optional[ProjectContext] = None
+    if other_file is not None:
+        data = other_file.getvalue()
+        try:
+            with st.spinner(t("parsing")):
+                other = load_project(file_hash(data), data, other_file.name)
+        except L5XError as exc:
+            st.error(t("parse_error", error=exc))
+            return
+    elif os.environ.get("APP_DEMO_OTHER") and os.path.isfile(os.environ["APP_DEMO_OTHER"]):
+        with open(os.environ["APP_DEMO_OTHER"], "rb") as fh:
+            data = fh.read()
+        other = load_project(file_hash(data), data, os.path.basename(os.environ["APP_DEMO_OTHER"]))
+    if other is None:
+        st.info(t("compare_none"))
+        return
+    dirs = {"other_old": t("dir_other_old"), "other_new": t("dir_other_new")}
+    direction = st.radio(t("compare_direction"), list(dirs), format_func=lambda k: dirs[k], horizontal=True, key="cmp_dir")
+    old, new = (other, ctx) if direction == "other_old" else (ctx, other)
+    key = (st.session_state.get("project_hash"), other.ctrl.name, other.metrics.routines, other.metrics.tags_controller, direction)
+    cache = st.session_state.setdefault("diff_cache", {})
+    if cache.get("key") != key:
+        with st.spinner(t("parsing")):
+            cache["key"], cache["diff"] = key, old.diff_to(new)
+    d = cache["diff"]
+    st.markdown(f"**{old.ctrl.name}** ({old.ctrl.export_date or '?'}) → **{new.ctrl.name}** ({new.ctrl.export_date or '?'})")
+    if d.empty:
+        st.success(t("compare_empty"))
+    else:
+        counts = d.counts()
+        st.caption(t("compare_summary", n=len(d.changes), detail=", ".join(f"{k}: {v}" for k, v in counts.items())))
+        rows = diff_rows(d)
+        cats = st.pills("categorias", list(counts), selection_mode="multi", default=list(counts), key="cmp_cats", label_visibility="collapsed") or list(counts)
+        st.dataframe([r for r in rows if r["Categoria"] in cats][:2000], width="stretch", hide_index=True)
+        c1, c2 = st.columns(2)
+        c1.download_button(t("compare_download_md"), data=diff_markdown(d).encode("utf-8"), file_name=f"diff_{old.ctrl.name}_{new.ctrl.name}.md".replace(" ", "_"), mime="text/markdown", key="dl_diff_md")
+        c2.download_button(t("compare_download_csv"), data=table_csv(DIFF_HEADER, rows).encode("utf-8-sig"), file_name=f"diff_{old.ctrl.name}_{new.ctrl.name}.csv".replace(" ", "_"), mime="text/csv", key="dl_diff_csv")
+    st.subheader(t("library_title"))
+    lib = [r for r in ctx.library_drift_with([other]) if r["Status"] != "igual"]
+    if lib:
+        st.dataframe(lib, width="stretch", hide_index=True)
+        st.download_button(t("drift_download"), data=table_csv(LIBRARY_HEADER, lib).encode("utf-8-sig"), file_name="library_drift.csv", mime="text/csv", key="dl_lib")
+    else:
+        st.caption(t("library_same"))
 
 
 def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
@@ -1060,7 +1255,7 @@ def main_area(store: CreditStore) -> Optional[ProjectContext]:
         llm_ok = False
         st.warning(t("llm_missing", error=exc.message))
 
-    nav_labels = {"programs": t("nav_programs"), "aois": t("nav_aois"), "diag": t("nav_diag"), "chat": t("nav_chat")}
+    nav_labels = {"programs": t("nav_programs"), "aois": t("nav_aois"), "diag": t("nav_diag"), "compare": t("nav_compare"), "chat": t("nav_chat")}
     st.session_state.setdefault("nav", "programs")
     nav = st.segmented_control("nav", list(NAV), format_func=lambda k: f"{NAV_ICON[k]} {nav_labels[k]}", key="nav", label_visibility="collapsed") or "programs"
     if nav == "programs":
@@ -1069,6 +1264,8 @@ def main_area(store: CreditStore) -> Optional[ProjectContext]:
         aoi_area(ctx, store, llm_ok)
     elif nav == "diag":
         diag_area(ctx)
+    elif nav == "compare":
+        compare_area(ctx)
     else:
         if llm_ok:
             chat_area(ctx, store)

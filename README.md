@@ -184,6 +184,22 @@ samples/           projetos reais (ignorado pelo git)
 Métricas (`Metrics`): programas, rotinas por tipo, rungs, linhas ST, instruções, tags por escopo, AOIs
 (e protegidas), UDTs, módulos, tasks, maior rotina, profundidade máxima de ramos, % de rungs comentados.
 
+## Relatórios que o Studio 5000 não gera
+
+Todos determinísticos (sem LLM), disponíveis na CLI e na seção **Diagnóstico** / **Comparar** do app:
+
+| Relatório | Módulo | CLI | O que faz |
+|---|---|---|---|
+| Diff semântico | `l5x_core/diff.py` | `antigo.L5X --diff novo.L5X [--export-diff x.csv\|md]` | Programas, rotinas, rungs/linhas ST/blocos FBD, tags, AOIs, UDTs, módulos e canais, tasks, **configuração armazenada nas tags** (membros de configuração de instâncias de AOI, PRE de timers, alarmes; membros de runtime como ACC/DN ignorados) e findings novos/resolvidos. |
+| Drift entre instâncias | `l5x_core/drift.py` | `--drift` | Por AOI, membros em que ≥ 75 % das instâncias compartilham um valor e as demais divergem (ex.: uma válvula com tempo de curso diferente). |
+| Drift de biblioteca entre PLCs | `l5x_core/drift.py` | `--library-drift outro.L5X [...]` | AOIs e UDTs iguais, em revisão diferente, com interface diferente ou ausentes em algum PLC. |
+| Lista de alarmes (ISA 18.2) | `l5x_core/alarms.py` | `--alarms [--export-alarms x.xlsx\|csv]` | ALMD/ALMA nativos e instâncias de AOIs de alarme (nome com "alarm"/"alm" ou parâmetro Severity), **inclusive aninhadas** em outras AOIs (`LIT_100.AH_Alm`), com severidade, habilitação, membros `Cfg_*`/limites/ack/latch e uso; resumo por severidade, desabilitados, sem descrição, sem uso, descrições duplicadas. |
+| Instrumentos e canais de I/O | `l5x_core/io_list.py` | `--io-list [--export-io x.xlsx]` | Canais comentados dos módulos (descrição, unidade, limites, spare, uso na lógica) e instrumentos (instâncias de AOI com unidade, range `*Range*Min/Max`, `EU_Min/Max` e canal de entrada/saída ligado, direto ou via MOV/COP, XIC→OTE e fios FBD). |
+
+No app, a área **Comparar** recebe um segundo L5X (versão antiga ou nova, ou outro PLC) e mostra o diff
+por categoria com download em Markdown/CSV e o drift de biblioteca. `APP_DEMO_OTHER=caminho.L5X` carrega
+o segundo arquivo automaticamente.
+
 ## Exportar a configuração das instâncias de AOI
 
 Cada tag de instância de uma AOI guarda, nos seus dados decorados, o valor de todos os parâmetros e tags
@@ -195,6 +211,16 @@ descrição de cada membro) ou CSV. Colunas fixas: PLC, AOI, Instancia, Escopo, 
 
 Dois modos: **config** (parâmetros Input não obrigatórios, que vivem na tag de instância, mais tags locais
 editáveis pelo HMI; timers só com PRE) e **all** (todos os parâmetros e locais).
+
+**De onde vêm os valores das tags locais.** O Studio 5000 só exporta os *parâmetros* das instâncias de AOI
+no `Data Format="Decorated"`; as tags locais (timers, palavras de HMI, blocos de alarme aninhados) existem
+apenas no `Data Format="L5K"`, o formato bruto em colchetes. `l5x_core/l5k.py` decodifica esse formato a
+partir do layout da definição: parâmetros e depois locais, na ordem da definição; BOOLs escalares
+empacotados 32 por DINT oculto inserido na posição do primeiro BOOL de cada grupo; parâmetros alias e InOut
+não ocupam espaço; UDTs usam os membros ocultos `ZZZZZZZZZZ…` com `Target`/`BitNumber`; TIMER/COUNTER são
+`[status,PRE,ACC]`; strings são `[LEN,'texto']`. Cada instância é **autovalidada**: os parâmetros decodificados
+têm de bater com os do Decorated, senão a instância fica só com os parâmetros e um finding
+`l5k_decode_mismatch` registra a AOI (nos dois projetos de exemplo, 100 % das instâncias validam).
 
 ```bash
 python -m l5x_core.cli projeto.L5X --export-config config.xlsx                      # todas as AOIs

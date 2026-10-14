@@ -233,6 +233,39 @@ class ProjectContext:
             cache[mode] = xlsx_bytes(build_sheets(self.ctrl, self.xref, mode=mode), mode)
         return cache[mode]
 
+    # ---- relatórios determinísticos (cacheados) ------------------------------
+    def _memo(self, key: str, build: Callable[[], Any]) -> Any:
+        cache = self.__dict__.setdefault("_memo_cache", {})
+        if key not in cache:
+            cache[key] = build()
+        return cache[key]
+
+    def alarm_table(self) -> Tuple[List[str], List[Dict[str, Any]]]:
+        from l5x_core.alarms import alarm_rows
+
+        return self._memo("alarms", lambda: alarm_rows(self.ctrl, self.xref))
+
+    def io_tables(self) -> List[Tuple[str, List[str], List[Dict[str, Any]]]]:
+        from l5x_core.io_list import io_tables
+
+        return self._memo("io", lambda: io_tables(self.ctrl, self.xref))
+
+    def drift_rows(self, mode: str = "config") -> List[Dict[str, Any]]:
+        from l5x_core.drift import instance_drift
+
+        return self._memo(f"drift_{mode}", lambda: instance_drift(self.ctrl, self.xref, mode=mode))
+
+    def diff_to(self, other: "ProjectContext"):
+        """Diff semântico deste projeto (antigo) para ``other`` (novo)."""
+        from l5x_core.diff import diff_projects
+
+        return diff_projects(self.ctrl, other.ctrl, self.findings, other.findings)
+
+    def library_drift_with(self, others: Sequence["ProjectContext"]) -> List[Dict[str, Any]]:
+        from l5x_core.drift import library_drift
+
+        return library_drift([self.ctrl] + [o.ctrl for o in others])
+
     def aoi_routines(self, name: str) -> List[Tuple[str, str]]:
         """Rotinas analisáveis da AOI como unidades (``aoi:<Nome>``, rotina)."""
         rep = self.aoi_report(name)

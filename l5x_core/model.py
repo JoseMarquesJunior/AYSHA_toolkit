@@ -216,6 +216,8 @@ class DataTypeMember:
     dimension: int = 0
     description: Optional[str] = None
     hidden: bool = False
+    target: Optional[str] = None  # BOOL members: hidden SINT that holds the bit
+    bit_number: Optional[int] = None
 
 
 @dataclass
@@ -237,6 +239,7 @@ class AoiParameter:
     description: Optional[str] = None
     default: Optional[Any] = None  # decorated DefaultData (scalars, or nested dict for structures)
     external_access: Optional[str] = None
+    alias_for: Optional[str] = None  # alias parameters point at a local tag member and hold no data
 
     @property
     def is_system(self) -> bool:
@@ -298,12 +301,41 @@ class Aoi:
 
 
 @dataclass
+class IoChannel:
+    """One commented point of a module I/O tag (``Rack:slot:I.Data.3``)."""
+
+    module: str
+    direction: str  # "I" | "O"
+    operand: str  # as in the L5X comment, e.g. ".DATA.3" or ".CH0.DATA"
+    path: str  # full tag path used by the logic, e.g. "Rack1:3:I.DATA.3"
+    description: Optional[str] = None
+    engineering_unit: Optional[str] = None
+    min: Optional[Any] = None
+    max: Optional[Any] = None
+
+    @property
+    def spare(self) -> bool:
+        return "spare" in (self.description or "").lower() or "reserva" in (self.description or "").lower()
+
+
+@dataclass
 class Module:
     name: str
     catalog: Optional[str] = None
     parent: Optional[str] = None
     description: Optional[str] = None
     inhibited: bool = False
+    slot: Optional[str] = None  # upstream port address
+    major: Optional[str] = None  # firmware revision
+    minor: Optional[str] = None
+    channels: List[IoChannel] = field(default_factory=list)
+
+    @property
+    def io_base(self) -> Optional[str]:
+        """Prefix of this module's I/O tags (``Parent:slot``), None for adapters without slot."""
+        if self.parent and self.slot is not None:
+            return f"{self.parent}:{self.slot}"
+        return None
 
 
 @dataclass

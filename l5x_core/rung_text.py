@@ -62,6 +62,8 @@ ROLES: Dict[str, Sequence[str]] = {
     "SFR": (K, K), "SFP": (K, K), "EVENT": (K,), "IOT": (W,),
     # system / comms
     "MSG": (RW,), "GSV": (K, K, K, W), "SSV": (K, K, K, R),
+    # alarms (ALMD: tag, In, ProgAck, ProgReset, ProgDisable, ProgEnable; ALMA: tag, In, ProgAck, ProgReset, ProgDisable, ProgEnable)
+    "ALMD": (RW, R, R, R, R, R), "ALMA": (RW, R, R, R, R, R),
     # arrays / files
     "BSL": (W, RW, R, R), "BSR": (W, RW, R, R),
     "FFL": (R, W, RW, R, R), "FFU": (R, W, RW, R, R),

@@ -108,7 +108,8 @@ def test_full_app_with_demo_file(env, monkeypatch):
     assert any(UI["pt-BR"]["review"] in b for b in buttons) and any(UI["pt-BR"]["document"] in b for b in buttons)
     assert any(UI["pt-BR"]["results_empty"] in c.value for c in at.caption)
     # demais áreas, via navegação persistida na sessão
-    for nav, expected in (("aois", UI["pt-BR"]["aoi_select"]), ("diag", UI["pt-BR"]["findings_sev"]), ("chat", UI["pt-BR"]["chat_title"])):
+    monkeypatch.setenv("APP_DEMO_OTHER", os.path.join(ROOT, "tests", "data", "plant.l5x"))
+    for nav, expected in (("aois", UI["pt-BR"]["aoi_select"]), ("diag", UI["pt-BR"]["findings_sev"]), ("compare", UI["pt-BR"]["library_title"]), ("chat", UI["pt-BR"]["chat_title"])):
         at.session_state["nav"] = nav
         at.run()
         assert not at.exception, nav

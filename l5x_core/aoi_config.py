@@ -244,3 +244,51 @@ def xlsx_bytes(sheets: Iterable[ConfigSheet], mode: str = "config") -> bytes:
     buf = io.BytesIO()
     write_xlsx(sheets, buf, mode)
     return buf.getvalue()
+
+
+# --------------------------------------------------------------------------
+# Generic tables (used by the alarm list, I/O list, drift and diff exports)
+# --------------------------------------------------------------------------
+Table = Tuple[str, List[str], List[Dict[str, Any]]]  # (title, header, rows)
+
+
+def table_csv(header: List[str], rows: Iterable[Dict[str, Any]]) -> str:
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";", lineterminator="\n")
+    w.writerow(header)
+    for r in rows:
+        w.writerow([_cell(r.get(c, "")) for c in header])
+    return buf.getvalue()
+
+
+def write_tables_xlsx(tables: Iterable[Table], target: Any) -> None:
+    """One sheet per (title, header, rows); ``target`` is a path or binary file-like."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    used: set = set()
+    bold = Font(bold=True)
+    for title, header, rows in tables:
+        ws = wb.create_sheet(_sheet_title(title, used))
+        ws.append(header)
+        for cell in ws[1]:
+            cell.font = bold
+        rows = list(rows)
+        for r in rows:
+            ws.append([_cell(r.get(c, "")) for c in header])
+        ws.freeze_panes = "A2"
+        for i, col in enumerate(header, 1):
+            width = max([len(str(col))] + [len(str(r.get(col, ""))) for r in rows[:200]])
+            ws.column_dimensions[get_column_letter(i)].width = min(60, max(8, width + 2))
+    if not wb.sheetnames:
+        wb.create_sheet("vazio")
+    wb.save(target)
+
+
+def tables_xlsx_bytes(tables: Iterable[Table]) -> bytes:
+    buf = io.BytesIO()
+    write_tables_xlsx(tables, buf)
+    return buf.getvalue()

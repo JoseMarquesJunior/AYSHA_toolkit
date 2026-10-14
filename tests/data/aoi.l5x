@@ -238,6 +238,14 @@
 <ORef ID="5" X="500" Y="300" Operand="Loose_Out" HideDesc="false"/>
 <Block Type="BNOT" ID="6" X="300" Y="400" Operand="Lonely_BNOT" VisiblePins="In Out" HideDesc="false"/>
 <TextBox ID="7" X="100" Y="500" Width="200" Text="anotação"/>
+<IRef ID="8" X="100" Y="600" Operand="Cmd2" HideDesc="false"/>
+<Function Type="BNOT__F" ID="9" X="300" Y="600"/>
+<ORef ID="10" X="500" Y="600" Operand="Fault1" HideDesc="false"/>
+<Wire FromID="8" ToID="9" ToParam="In1"/>
+<Wire FromID="9" FromParam="Out" ToID="10"/>
+<IRef ID="11" X="100" Y="700" Operand="Fbk1" HideDesc="false"/>
+<ORef ID="12" X="500" Y="700" Operand="Out1" HideDesc="false"/>
+<Wire FromID="11" ToID="12"/>
 </Sheet>
 </FBDContent>
 </Routine>

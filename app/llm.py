@@ -221,7 +221,7 @@ class ProjectContext:
         """Rotinas analisáveis da AOI como unidades (``aoi:<Nome>``, rotina)."""
         rep = self.aoi_report(name)
         scope = f"{AOI_PREFIX}{rep.aoi.name}"
-        return [(scope, r.name) for r in rep.aoi.routines if r.analyzed]
+        return [(scope, r.name) for r in rep.aoi.routines if r.has_content]
 
     def analyzed_routines(self, program: Optional[str] = None) -> List[Tuple[str, str]]:
         """Rotinas com conteúdo analisável (RLL/ST não protegidas), na ordem do projeto."""
@@ -232,6 +232,30 @@ class ProjectContext:
             for r in p.routines:
                 if r.analyzed:
                     out.append((p.name, r.name))
+        return out
+
+    def content_routines(self, program: Optional[str] = None) -> List[Tuple[str, str]]:
+        """Rotinas com conteúdo para o modelo (RLL/ST exatas e FBD com netlist), na ordem
+        de execução: main e fault primeiro, depois as sub-rotinas na ordem dos JSR
+        (busca em largura), por fim as rotinas nunca chamadas."""
+        out: List[Tuple[str, str]] = []
+        for p in self.ctrl.programs:
+            if program and p.name.lower() != program.lower():
+                continue
+            by_name = {r.name.lower(): r for r in p.routines}
+            order: List[str] = []
+            seen: Set[str] = set()
+            queue = [n for n in (p.main_routine, p.fault_routine) if n and n.lower() in by_name]
+            while queue:
+                name = queue.pop(0)
+                key = name.lower()
+                if key in seen or key not in by_name:
+                    continue
+                seen.add(key)
+                order.append(by_name[key].name)
+                queue.extend(c.strip() for c in by_name[key].calls if c.strip().lower() in by_name and c.strip().lower() not in seen)
+            order.extend(r.name for r in p.routines if r.name.lower() not in seen)
+            out.extend((p.name, n) for n in order if by_name[n.lower()].has_content)
         return out
 
     def all_routines(self, program: Optional[str] = None) -> List[Tuple[str, str]]:
@@ -462,8 +486,8 @@ class LLMClient:
             units = [(program, routine)]
             target = f"{program} / {routine}"
         else:
-            units = ctx.analyzed_routines(program) or ctx.all_routines(program)
-            target = f"programa {program}"
+            units = ctx.content_routines(program) or ctx.all_routines(program)
+            target = f"programa {program} (main, fault e sub-rotinas na ordem dos JSR)"
             if not units:
                 raise LLMError(f"Programa '{program}' não encontrado ou sem rotinas.", kind="api")
         chunks = self._pack_units(ctx, units, self.budget_for_content(ctx, language))
@@ -486,13 +510,13 @@ class LLMClient:
             units = [(program, routine)]  # type: ignore[list-item]
             target = f"{program} / {routine}"
         elif program:
-            units = ctx.analyzed_routines(program)
-            target = f"programa {program}"
+            units = ctx.content_routines(program)
+            target = f"programa {program} (main, fault e sub-rotinas na ordem dos JSR)"
         else:
-            units = ctx.analyzed_routines()
-            target = f"projeto {ctx.ctrl.name} (todas as rotinas analisáveis)"
+            units = ctx.content_routines()
+            target = f"projeto {ctx.ctrl.name} (todas as rotinas com conteúdo)"
         if not units:
-            raise LLMError("Nenhuma rotina analisável (ladder/ST) no escopo pedido.", kind="api")
+            raise LLMError("Nenhuma rotina com conteúdo (ladder, ST ou FBD) no escopo pedido.", kind="api")
         findings = ctx.findings_for(program, routine)
         findings_txt = ctx.findings_text(findings)
         budget = self.budget_for_content(ctx, language) - estimate_tokens(findings_txt)
@@ -510,7 +534,7 @@ class LLMClient:
 
     def document(self, ctx: ProjectContext, program: Optional[str] = None, language: Optional[str] = None, on_text: OnText = None) -> LLMResult:
         mode = "document"
-        units = ctx.analyzed_routines(program)
+        units = ctx.content_routines(program)
         if program and not units and not ctx.all_routines(program):
             raise LLMError(f"Programa '{program}' não encontrado.", kind="api")
         target = f"programa {program}" if program else f"projeto {ctx.ctrl.name}"
@@ -519,7 +543,7 @@ class LLMClient:
         timer_txt = ctx.timer_table(program)
         fixed = estimate_tokens(findings_txt) + estimate_tokens(io_txt) + estimate_tokens(timer_txt)
         budget = max(500, self.budget_for_content(ctx, language) - fixed)
-        chunks = self._pack_units(ctx, units, budget) if units else ["(sem rotinas ladder/ST analisáveis neste escopo; documente a estrutura a partir da visão geral)"]
+        chunks = self._pack_units(ctx, units, budget) if units else ["(sem rotinas com conteúdo neste escopo; documente a estrutura a partir da visão geral)"]
         template = self.prompt("document")
         if len(chunks) == 1:
             user = render(template, target=target, io_table=io_txt, timer_table=timer_txt, findings=findings_txt, content=chunks[0])

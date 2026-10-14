@@ -46,7 +46,7 @@ def _routine_size(r: Routine) -> str:
     if r.type == "ST":
         return f"{len(r.st_lines)} linhas"
     if r.type == "FBD":
-        return f"{r.sheets} folha(s), não analisada em detalhe"
+        return f"{r.sheets} folha(s), {len(r.fbd_nodes)} blocos (netlist aproximada)" if r.fbd_nodes else f"{r.sheets} folha(s), não analisada em detalhe"
     if r.type == "SFC":
         return "não analisada em detalhe"
     return "?"
@@ -259,6 +259,25 @@ def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[Cr
     elif rt.type == "ST":
         for ln in rt.st_lines:
             add(f"L{ln.number}: {ln.text.rstrip()}")
+        for ref in rt.tag_refs:
+            note_tag(ref.tag_base, ref.program)
+    elif rt.type == "FBD" and rt.fbd_nodes:
+        add(f"Rotina FBD: {rt.sheets} folha(s), {len(rt.fbd_nodes)} elementos. Netlist aproximada por folha: `pino=origem` para entradas, `pino->destino` para saídas; pinos não listados usam o valor da tag de instância; a ordem de execução dentro da folha não é conhecida.")
+        kinds = {"Block": "Bloco", "AddOnInstruction": "AOI", "Function": "Função", "JSR": "JSR", "Wire": "Fio"}
+        current = None
+        for node in rt.fbd_nodes:
+            if node.sheet != current:
+                current = node.sheet
+                add(f"Folha {current}:")
+            if node.kind == "Wire":
+                add(f"- Fio: {node.name}")
+                continue
+            ins = "; ".join(f"{k}={v}" for k, v in node.inputs.items())
+            outs = "; ".join(f"{k}->{v}" for k, v in node.outputs.items())
+            parts = [p for p in (ins, outs) if p]
+            add(f"- {kinds.get(node.kind, node.kind)} {node.label}: " + ("; ".join(parts) if parts else "(sem pinos fiados)"))
+        if rt.dangling:
+            add("SEM FIO (elementos na folha sem nenhuma conexão): " + ", ".join(f"{d.kind} {d.operand} (folha {d.sheet})" for d in rt.dangling[:20]) + (" …" if len(rt.dangling) > 20 else ""))
         for ref in rt.tag_refs:
             note_tag(ref.tag_base, ref.program)
     else:

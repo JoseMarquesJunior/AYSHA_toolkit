@@ -128,6 +128,26 @@ class DanglingRef:
 
 
 @dataclass
+class FbdNode:
+    """One executable element of an FBD sheet with the operands wired to its pins
+    (approximate netlist: execution order inside the sheet is not known)."""
+
+    kind: str  # Block | AddOnInstruction | Function | JSR | Wire
+    name: str  # block type, AOI name, function type (without __F), routine name or "src -> dst"
+    sheet: int
+    id: str
+    operand: Optional[str] = None  # backing / instance tag (Functions have none)
+    inputs: Dict[str, str] = field(default_factory=dict)  # pin -> source (tag, "block.pin" or InOut argument)
+    outputs: Dict[str, str] = field(default_factory=dict)  # pin -> destination(s)
+
+    @property
+    def label(self) -> str:
+        if self.kind == "Function":
+            return f"{self.name}#{self.id}"
+        return f"{self.name} [{self.operand}]" if self.operand else self.name
+
+
+@dataclass
 class Routine:
     name: str
     type: str  # RLL | ST | FBD | SFC | other
@@ -139,12 +159,19 @@ class Routine:
     calls: List[str] = field(default_factory=list)  # JSR / FOR targets (routine names)
     aoi_calls: List[AoiCall] = field(default_factory=list)  # AOI invocations (RLL exact, ST/FBD approximate)
     dangling: List[DanglingRef] = field(default_factory=list)  # FBD elements without wires
+    fbd_nodes: List[FbdNode] = field(default_factory=list)  # FBD netlist (approximate)
     size: int = 0  # rungs, lines or graphic nodes depending on type
     sheets: int = 0  # FBD only
 
     @property
     def analyzed(self) -> bool:
+        """Exact logic available (ladder / structured text)."""
         return self.type in ("RLL", "ST") and not self.protected
+
+    @property
+    def has_content(self) -> bool:
+        """Something to show the model: exact logic, or the approximate FBD netlist."""
+        return self.analyzed or (self.type == "FBD" and not self.protected and bool(self.fbd_nodes))
 
 
 @dataclass

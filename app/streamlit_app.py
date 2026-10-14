@@ -627,7 +627,7 @@ def main_area(store: CreditStore) -> Optional[ProjectContext]:
     if scope == "routine" and rt is not None:
         if rt.protected:
             st.warning(t("routine_protected"))
-        elif not rt.analyzed:
+        elif not rt.has_content:
             st.info(t("routine_not_analyzed", type=rt.type))
 
     findings_table(ctx, None if scope == "project" else program, routine if scope == "routine" else None)

@@ -176,6 +176,20 @@ samples/           projetos reais (ignorado pelo git)
 Métricas (`Metrics`): programas, rotinas por tipo, rungs, linhas ST, instruções, tags por escopo, AOIs
 (e protegidas), UDTs, módulos, tasks, maior rotina, profundidade máxima de ramos, % de rungs comentados.
 
+## Rotinas FBD: netlist aproximada e escopo de programa
+
+O parser extrai de cada rotina FBD uma **netlist por folha** (`Routine.fbd_nodes`): blocos, AOIs,
+funções inline (`BNOT#12`), JSR e fios diretos entre tags, com `pino=origem` para entradas e
+`pino->destino` para saídas (pinos não fiados usam o valor da tag de instância; a ordem de execução
+dentro da folha não é conhecida). O texto de rotina enviado ao modelo lista essa netlist, e o modelo
+cita `Programa/Rotina folha N`.
+
+Com isso, as ações **Explicar**, **Revisar** e **Documentar** no escopo *programa* (ou *projeto*)
+passam a incluir **todas as rotinas com conteúdo** (RLL, ST e FBD), na ordem de execução: main e
+fault primeiro, depois as sub-rotinas na ordem dos JSR, por fim as nunca chamadas. Programas grandes
+(centenas de sub-rotinas FBD) são processados em partes e consolidados (map-reduce). Rotinas SFC e
+protegidas continuam fora.
+
 ## Tags sem fio em rotinas FBD
 
 Em edições de FBD é comum sobrar uma referência de tag (IRef/ORef) na folha sem nenhum fio: a tag

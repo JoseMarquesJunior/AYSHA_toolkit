@@ -20,7 +20,7 @@ def test_project_overview(ctrl, findings, metrics):
     assert "Programa SafetyProg [SAFETY]" in text
     assert "- MainRoutine [RLL, 12 rungs] — Rotina principal" in text
     assert "- Protected [RLL, protegida]" in text
-    assert "- StCalled [FBD, 1 folha(s), não analisada em detalhe]" in text
+    assert "- StCalled [FBD, 1 folha(s), 1 blocos (netlist aproximada)]" in text
     assert "MyAoi rev. 1.0" in text and "In1:I, Out1:O, IO1:I" in text
     assert "SecretAoi rev. 2.0 [PROTEGIDA]" in text
     assert "- Tank: Level:REAL, FillTimer:TIMER" in text

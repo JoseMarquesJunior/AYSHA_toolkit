@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from lxml import etree
 
 from .model import (
-    Aoi, AoiCall, AoiParameter, Controller, DanglingRef, DataType, DataTypeMember, Finding, Module,
+    Aoi, AoiCall, AoiParameter, Controller, DanglingRef, DataType, DataTypeMember, FbdNode, Finding, Module,
     Program, Routine, Rung, STLine, Tag, TagRef, Task, READ, WRITE, READWRITE,
 )
 from .rung_text import parse_rung, RungSyntaxError, split_tag_path
@@ -387,7 +387,7 @@ class _L5XParser:
         routine.size = nodes
         routine.sheets = sheet_no
         if source == "fbd":
-            self._fbd_aoi_calls(content, routine)
+            self._fbd_netlist(content, routine)
             self._fbd_dangling(content, routine)
 
     @staticmethod
@@ -422,52 +422,79 @@ class _L5XParser:
                     x = y = None
                 routine.dangling.append(DanglingRef(kind=kind, operand=operand, sheet=number, x=x, y=y))
 
-    def _fbd_aoi_calls(self, content: etree._Element, routine: Routine) -> None:
-        """AddOnInstruction nodes of an FBD routine, with the operands wired to each pin.
+    _FBD_EXEC = ("Block", "AddOnInstruction", "Function", "JSR")
 
-        Input pins map to the IRef operand (or ``block.pin``) feeding them, output pins to
-        the ORef operand(s) they feed, InOut pins to the InOutParameter argument.
+    def _fbd_netlist(self, content: etree._Element, routine: Routine) -> None:
+        """Approximate netlist of an FBD routine: every block / AOI / inline function / JSR
+        with the operand wired to each pin, plus direct IRef -> ORef wires. AOI nodes also
+        produce an AoiCall (input pins = source, output pins = destination, InOut = argument).
         """
         sheets = list(content.iterfind("Sheet")) or [content]
         for sheet_no, sheet in enumerate(sheets, 1):
-            nodes: Dict[str, Tuple[str, str]] = {}  # id -> (kind, operand/name)
+            number = int(sheet.get("Number") or sheet_no) if sheet is not content else sheet_no
+            nodes: Dict[str, Tuple[str, str]] = {}  # id -> (kind, label)
             for node in sheet:
                 nid = node.get("ID")
                 if nid is None:
                     continue
-                if node.tag in ("IRef", "ORef", "Block", "AddOnInstruction", "ICon", "OCon", "JSR", "SBR", "RET", "Function"):
-                    nodes[nid] = (node.tag, node.get("Operand") or node.get("Name") or node.get("Type") or "?")
+                if node.tag in ("IRef", "ORef", "ICon", "OCon"):
+                    nodes[nid] = (node.tag, node.get("Operand") or node.get("Name") or "?")
+                elif node.tag == "Function":
+                    nodes[nid] = (node.tag, f"{(node.get('Type') or '?').replace('__F', '')}#{nid}")
+                elif node.tag in ("Block", "AddOnInstruction", "JSR", "SBR", "RET"):
+                    nodes[nid] = (node.tag, node.get("Operand") or node.get("Routine") or node.get("Name") or node.get("Type") or "?")
 
             def describe(nid: Optional[str], param: Optional[str]) -> str:
-                kind, operand = nodes.get(nid or "", ("?", f"#{nid}"))
+                kind, label = nodes.get(nid or "", ("?", f"#{nid}"))
                 if kind in ("IRef", "ORef"):
-                    return operand
+                    return label
                 if kind in ("ICon", "OCon"):
-                    return f"<{operand}>"
-                return f"{operand}.{param}" if param else operand
+                    return f"<{label}>"
+                return f"{label}.{param}" if param else label
 
             wires = [w for w in sheet if w.tag in ("Wire", "FeedbackWire")]
             for node in sheet:
-                if node.tag != "AddOnInstruction":
-                    continue
-                name = node.get("Name") or "?"
-                if name.lower() not in self.aoi_usages:
-                    continue
                 nid = node.get("ID")
-                pins: Dict[str, str] = {}
+                if nid is None or node.tag not in self._FBD_EXEC:
+                    continue
+                if node.tag == "Function":
+                    name = (node.get("Type") or "?").replace("__F", "")
+                    operand = None
+                elif node.tag == "JSR":
+                    name = node.get("Routine") or "?"
+                    operand = None
+                else:
+                    name = node.get("Name") or node.get("Type") or "?"
+                    operand = node.get("Operand")
+                fnode = FbdNode(kind=node.tag, name=name, sheet=number, id=nid, operand=operand)
+                pins: Dict[str, str] = {}  # AoiCall view: InOut arguments first, then wires
                 for iop in node.iterfind("InOutParameter"):
                     if iop.get("Name") and iop.get("Argument"):
                         pins[iop.get("Name")] = iop.get("Argument")
+                        fnode.inputs[iop.get("Name")] = iop.get("Argument")
                 for w in wires:
                     if w.get("ToID") == nid and w.get("ToParam"):
-                        pins[w.get("ToParam")] = describe(w.get("FromID"), w.get("FromParam"))
+                        src = describe(w.get("FromID"), w.get("FromParam"))
+                        pins[w.get("ToParam")] = src
+                        fnode.inputs[w.get("ToParam")] = src
                     elif w.get("FromID") == nid and w.get("FromParam"):
                         dest = describe(w.get("ToID"), w.get("ToParam"))
                         prev = pins.get(w.get("FromParam"))
                         pins[w.get("FromParam")] = f"{prev}, {dest}" if prev else dest
-                routine.aoi_calls.append(AoiCall(
-                    aoi=name, instance=node.get("Operand"), location=f"sheet {sheet_no}", source="fbd", pins=pins,
-                ))
+                        prev_out = fnode.outputs.get(w.get("FromParam"))
+                        fnode.outputs[w.get("FromParam")] = f"{prev_out}, {dest}" if prev_out else dest
+                routine.fbd_nodes.append(fnode)
+                if node.tag == "AddOnInstruction" and name.lower() in self.aoi_usages:
+                    routine.aoi_calls.append(AoiCall(
+                        aoi=name, instance=operand, location=f"sheet {sheet_no}", source="fbd", pins=pins,
+                    ))
+            # direct reference-to-reference wires (no block in between)
+            for w in wires:
+                src_kind = nodes.get(w.get("FromID") or "", ("?", ""))[0]
+                dst_kind = nodes.get(w.get("ToID") or "", ("?", ""))[0]
+                if src_kind in ("IRef", "ICon") and dst_kind in ("ORef", "OCon"):
+                    src, dst = describe(w.get("FromID"), None), describe(w.get("ToID"), None)
+                    routine.fbd_nodes.append(FbdNode(kind="Wire", name=f"{src} -> {dst}", sheet=number, id=f"{w.get('FromID')}-{w.get('ToID')}", inputs={"from": src}, outputs={"to": dst}))
 
     def _graphic_ref(self, routine: Routine, operand: Optional[str], access: str, loc: str, source: str) -> None:
         if not operand:

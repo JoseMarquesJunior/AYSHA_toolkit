@@ -68,7 +68,7 @@ def score_routines(ctx: "ProjectContext", question: str) -> List[RoutineHit]:
         if aoi.protected:
             return
         for r in aoi.routines:
-            if not r.analyzed:
+            if not r.has_content:
                 continue
             h = hit(f"aoi:{aoi.name}", r.name)
             if reason not in h.reasons:

@@ -150,7 +150,8 @@ def test_helpers():
     assert ctx.ctrl.name == "MINIMAL" and ctx.metrics.programs == 3
     assert len(file_hash(data)) == 64
     md = result_markdown("Explicação: MainProgram/MainRoutine", "corpo", "MINIMAL", "modelo-x", "pt-BR")
-    assert md.startswith("# Explicação: MainProgram/MainRoutine\n") and "corpo" in md and "modelo-x" in md
+    assert md.startswith("# Explicação: MainProgram/MainRoutine\n") and "corpo" in md and "modelo-x" not in md  # o modelo não aparece para o usuário
+    assert "{model}" not in UI["pt-BR"]["deep_toggle"] and "{inp}" not in UI["pt-BR"]["usage"] and "cost_detail" not in UI["pt-BR"]
     assert UI["pt-BR"]["disclaimer"] in md
     with pytest.raises(Exception):
         parse_upload(b"<html/>", "x.l5x")

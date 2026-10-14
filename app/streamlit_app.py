@@ -87,7 +87,7 @@ UI: Dict[str, Dict[str, str]] = {
         "chat_sources": "Rotinas consultadas: {sources}",
         "llm_missing": "Camada LLM não configurada: {error}. Upload, resumo e findings continuam funcionando.",
         "working": "Consultando o modelo…",
-        "usage": "{model} · {calls} chamada(s) · entrada {inp} · saída {out} · cache {cache} · {ms} ms",
+        "usage": "{calls} chamada(s) · {secs} s",
         "refusal": "O modelo recusou parte do pedido; veja a resposta.",
         "truncated": "A resposta foi cortada pelo limite de tokens de saída.",
         "mode_explain": "Explicação",
@@ -200,9 +200,8 @@ UI: Dict[str, Dict[str, str]] = {
         "col_safety": "Safety",
         "credits_low": "Créditos acabando: {balance} restante(s).",
         "credits_none": "Sem créditos. Peça mais ao administrador.",
-        "deep_toggle": "Análise profunda com {model}",
+        "deep_toggle": "Análise profunda",
         "deep_help": "Usa o modelo mais capaz também nesta ação: mais profundidade, mais créditos e mais tempo de resposta.",
-        "cost_detail": "{summary}",
         "disclaimer": "Análise automática: validar com o engenheiro responsável antes de qualquer alteração.",
     },
     "en": {
@@ -253,7 +252,7 @@ UI: Dict[str, Dict[str, str]] = {
         "chat_sources": "Routines consulted: {sources}",
         "llm_missing": "LLM layer not configured: {error}. Upload, summary and findings still work.",
         "working": "Querying the model…",
-        "usage": "{model} · {calls} call(s) · input {inp} · output {out} · cache {cache} · {ms} ms",
+        "usage": "{calls} call(s) · {secs} s",
         "refusal": "The model declined part of the request; see the answer.",
         "truncated": "The answer was cut by the output token limit.",
         "mode_explain": "Explanation",
@@ -366,9 +365,8 @@ UI: Dict[str, Dict[str, str]] = {
         "col_safety": "Safety",
         "credits_low": "Running low on credits: {balance} left.",
         "credits_none": "No credits left. Ask the administrator for more.",
-        "deep_toggle": "Deep analysis with {model}",
+        "deep_toggle": "Deep analysis",
         "deep_help": "Uses the most capable model for this action too: more depth, more credits and a longer wait.",
-        "cost_detail": "{summary}",
         "disclaimer": "Automated analysis: validate with the responsible engineer before any change.",
     },
     "es": {
@@ -419,7 +417,7 @@ UI: Dict[str, Dict[str, str]] = {
         "chat_sources": "Rutinas consultadas: {sources}",
         "llm_missing": "Capa LLM no configurada: {error}. Carga, resumen y findings siguen funcionando.",
         "working": "Consultando el modelo…",
-        "usage": "{model} · {calls} llamada(s) · entrada {inp} · salida {out} · caché {cache} · {ms} ms",
+        "usage": "{calls} llamada(s) · {secs} s",
         "refusal": "El modelo rechazó parte del pedido; vea la respuesta.",
         "truncated": "La respuesta fue cortada por el límite de tokens de salida.",
         "mode_explain": "Explicación",
@@ -532,9 +530,8 @@ UI: Dict[str, Dict[str, str]] = {
         "col_safety": "Safety",
         "credits_low": "Se acaban los créditos: quedan {balance}.",
         "credits_none": "Sin créditos. Pida más al administrador.",
-        "deep_toggle": "Análisis profundo con {model}",
+        "deep_toggle": "Análisis profundo",
         "deep_help": "Usa el modelo más capaz también en esta acción: más profundidad, más créditos y más tiempo de respuesta.",
-        "cost_detail": "{summary}",
         "disclaimer": "Análisis automático: validar con el ingeniero responsable antes de cualquier cambio.",
     },
 }
@@ -587,7 +584,7 @@ UI["zh-CN"] = {
     "chat_sources": "查阅的例程：{sources}",
     "llm_missing": "未配置 LLM 层：{error}。上传、概览和发现项仍可使用。",
     "working": "正在查询模型…",
-    "usage": "{model} · {calls} 次调用 · 输入 {inp} · 输出 {out} · 缓存 {cache} · {ms} ms",
+    "usage": "{calls} 次调用 · {secs} 秒",
     "refusal": "模型拒绝了部分请求；请查看回答。",
     "truncated": "回答因输出令牌上限被截断。",
     "mode_explain": "解释",
@@ -700,9 +697,8 @@ UI["zh-CN"] = {
     "col_safety": "Safety",
     "credits_low": "额度即将用完：剩余 {balance}。",
     "credits_none": "额度已用完。请向管理员申请。",
-    "deep_toggle": "使用 {model} 进行深度分析",
+    "deep_toggle": "深度分析",
     "deep_help": "此操作也使用最强模型：更深入，但消耗更多额度且等待更久。",
-    "cost_detail": "{summary}",
     "disclaimer": "自动分析：任何更改前请与负责工程师核实。",
 }
 
@@ -754,7 +750,7 @@ UI["hi"] = {
     "chat_sources": "देखी गई रूटीन: {sources}",
     "llm_missing": "LLM परत कॉन्फ़िगर नहीं है: {error}। अपलोड, सारांश और निष्कर्ष फिर भी काम करते हैं।",
     "working": "मॉडल से पूछा जा रहा है…",
-    "usage": "{model} · {calls} कॉल · इनपुट {inp} · आउटपुट {out} · कैश {cache} · {ms} ms",
+    "usage": "{calls} कॉल · {secs} s",
     "refusal": "मॉडल ने अनुरोध का कुछ हिस्सा अस्वीकार किया; उत्तर देखें।",
     "truncated": "आउटपुट टोकन सीमा के कारण उत्तर कट गया।",
     "mode_explain": "व्याख्या",
@@ -867,15 +863,13 @@ UI["hi"] = {
     "col_safety": "Safety",
     "credits_low": "क्रेडिट कम हो रहे हैं: {balance} शेष।",
     "credits_none": "क्रेडिट समाप्त। प्रशासक से और माँगें।",
-    "deep_toggle": "{model} के साथ गहन विश्लेषण",
+    "deep_toggle": "गहन विश्लेषण",
     "deep_help": "इस कार्रवाई में भी सबसे सक्षम मॉडल का उपयोग: अधिक गहराई, अधिक क्रेडिट और अधिक प्रतीक्षा।",
-    "cost_detail": "{summary}",
     "disclaimer": "स्वचालित विश्लेषण: किसी भी बदलाव से पहले ज़िम्मेदार इंजीनियर से सत्यापित करें।",
 }
 
 LANG_LABELS = {"pt-BR": "Português (BR)", "en": "English", "es": "Español", "zh-CN": "中文（简体）", "hi": "हिन्दी"}
 DOC_PROJECT_COST = 3
-NL2 = chr(10) + chr(10)
 
 
 def t(key: str, **kw: Any) -> str:
@@ -933,7 +927,7 @@ def file_hash(data: bytes) -> str:
 def result_markdown(title: str, text: str, project: str, model: str, lang: str) -> str:
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     disclaimer = UI.get(lang, UI["pt-BR"])["disclaimer"]
-    return f"# {title}\n\n_{project} · {stamp} · {model}_\n\n{text}\n\n---\n_{disclaimer}_\n"
+    return f"# {title}\n\n_{project} · {stamp}_\n\n{text}\n\n---\n_{disclaimer}_\n"
 
 
 def secrets_mapping() -> Optional[Any]:
@@ -1216,7 +1210,7 @@ def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, p
         st.error(t("insufficient", cost=cost, balance=store.balance(code)))
     st.session_state.setdefault("results", []).insert(0, {
         "title": title, "text": result.text, "mode": mode, "model": result.model,
-        "usage": t("usage", model=result.model, calls=result.calls, inp=result.usage.input_tokens, out=result.usage.output_tokens, cache=result.usage.cache_read_tokens, ms=result.latency_ms),
+        "usage": t("usage", calls=result.calls, secs=round(result.latency_ms / 1000)),
         "refusal": result.refusal, "truncated": result.truncated,
     })
     st.toast(title, icon="✅")
@@ -1319,7 +1313,7 @@ def programs_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None
     llm = llm_or_none() if llm_ok else None
     deep = False
     if llm is not None and llm.config.has_deep_option:
-        deep = st.toggle(t("deep_toggle", model=llm.config.model_deep), key="deep_explain", help=t("deep_help"))
+        deep = st.toggle(t("deep_toggle"), key="deep_explain", help=t("deep_help"))
     b1, b2, b3 = st.columns(3)
     explain_reason = reason or (t("disabled_project") if scope == "project" else None)
     cost_explain, est_explain = (estimated_cost(llm, ctx, "explain", scope, program, routine, deep=deep) if explain_reason is None else (action_cost("explain", scope), None))
@@ -1329,8 +1323,7 @@ def programs_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None
     cost_doc, est_doc = (estimated_cost(llm, ctx, "document", doc_scope, program, routine) if doc_reason is None else (action_cost("document", doc_scope), None))
 
     def tip(reason_txt: Optional[str], help_key: str, est: Any) -> str:
-        base = reason_txt or t(help_key)
-        return f"{base}{NL2}{t('cost_detail', summary=est.summary())}" if est is not None else base
+        return reason_txt or t(help_key)
 
     if b1.button(f"✨ {t('explain')} · {t('cost', n=cost_explain)}", disabled=explain_reason is not None, width="stretch", type="primary", help=tip(explain_reason, "explain_help", est_explain)):
         run_action("explain", scope, ctx, store, program, routine, deep=deep, cost=cost_explain)
@@ -1497,8 +1490,6 @@ def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
     reason = t("disabled_llm") if not llm_ok else (t("disabled_protected") if row["protected"] else None)
     cost, est = (estimated_cost(llm_or_none(), ctx, "aoi", "aoi", aoi=name) if reason is None else (action_cost("aoi", "aoi"), None))
     help_txt = reason or t("aoi_help")
-    if est is not None:
-        help_txt = f"{help_txt}{NL2}{t('cost_detail', summary=est.summary())}"
     if st.button(f"✨ {t('aoi_analyze')} · {t('cost', n=cost)}", disabled=reason is not None, help=help_txt, key="btn_aoi", type="primary"):
         run_action("aoi", "aoi", ctx, store, None, None, aoi=name, cost=cost)
     with st.expander(t("aoi_report"), expanded=False):
@@ -1545,10 +1536,10 @@ def chat_area(ctx: ProjectContext, store: CreditStore) -> None:
     llm = llm_or_none()
     deep = False
     if llm is not None and llm.config.has_deep_option:
-        deep = st.toggle(t("deep_toggle", model=llm.config.model_deep), key="deep_chat", help=t("deep_help"))
+        deep = st.toggle(t("deep_toggle"), key="deep_chat", help=t("deep_help"))
     if llm is not None:
-        typical, est = estimated_cost(llm, ctx, "chat", "chat", deep=deep, question="", history=history)
-        st.caption(t("cost", n=f"~{typical}") + (f" · {est.summary()}" if est is not None else ""))
+        typical, _ = estimated_cost(llm, ctx, "chat", "chat", deep=deep, question="", history=history)
+        st.caption(t("cost", n=f"~{typical}"))
     question = st.chat_input(t("chat_placeholder"))
     if not question:
         return

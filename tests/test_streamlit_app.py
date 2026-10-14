@@ -86,6 +86,42 @@ def test_llm_missing_config_is_visible_but_not_fatal(env, monkeypatch):
     assert not at.exception  # sem projeto carregado não há aviso ainda; a config é lida no upload
 
 
+def test_full_app_with_demo_file(env, monkeypatch):
+    """APP_DEMO_FILE carrega um L5X sem upload: renderiza as quatro áreas sem exceção."""
+    monkeypatch.setenv("APP_DEMO_FILE", MINIMAL)
+    at = run_app()
+    at.text_input[0].input("DEMO")
+    at.button[0].click().run()
+    assert not at.exception
+    assert at.session_state["project_hash"] and at.session_state["file_meta"]["name"] == "minimal.l5x"
+    assert any("minimal.l5x" in s.value for s in at.success)
+    sidebar_md = " ".join(m.value for m in at.sidebar.markdown)
+    assert "MINIMAL" in sidebar_md and "1756-L85E" in sidebar_md
+    assert [m.label for m in at.sidebar.metric][:2] == [UI["pt-BR"]["programs"], UI["pt-BR"]["routines"]]
+    # área Programas (padrão): seletores com rótulos ricos e os três botões com custo
+    labels = [s.label for s in at.selectbox]
+    assert UI["pt-BR"]["program"] in labels and UI["pt-BR"]["routine"] in labels
+    routine_box = next(s for s in at.selectbox if s.label == UI["pt-BR"]["routine"])
+    assert routine_box.format_func("MainRoutine").startswith("MainRoutine · RLL · 12 rungs · main")
+    buttons = [b.label for b in at.button]
+    assert any(UI["pt-BR"]["explain"] in b and "1 crédito" in b for b in buttons)
+    assert any(UI["pt-BR"]["review"] in b for b in buttons) and any(UI["pt-BR"]["document"] in b for b in buttons)
+    assert any(UI["pt-BR"]["results_empty"] in c.value for c in at.caption)
+    # demais áreas, via navegação persistida na sessão
+    for nav, expected in (("aois", UI["pt-BR"]["aoi_select"]), ("diag", UI["pt-BR"]["findings_sev"]), ("chat", UI["pt-BR"]["chat_title"])):
+        at.session_state["nav"] = nav
+        at.run()
+        assert not at.exception, nav
+        texts = " ".join(e.label for e in at.selectbox) + " ".join(e.value for e in at.subheader) + " ".join(getattr(e, "label", "") for e in at.get("pills"))
+        assert expected in texts, nav
+    at.session_state["nav"] = "aois"
+    at.run()
+    aoi_box = next(s for s in at.selectbox if s.label == UI["pt-BR"]["aoi_select"])
+    assert "MyAoi rev. 1.0 · 1 inst. · 2 chamadas" in aoi_box.format_func("MyAoi")
+    assert "SecretAoi" in aoi_box.format_func("SecretAoi") and "protegida" in aoi_box.format_func("SecretAoi")
+    assert any(UI["pt-BR"]["aoi_analyze"] in b.label for b in at.button)
+
+
 def test_helpers():
     assert action_cost("explain", "routine") == 1
     assert action_cost("review", "project") == 1

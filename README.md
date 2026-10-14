@@ -24,12 +24,20 @@ streamlit run app/streamlit_app.py
 ```
 
 Abra http://localhost:8501, digite o código de acesso, envie o `.L5X` (limite de 300 MB em
-`.streamlit/config.toml`). A barra lateral mostra o resumo, os findings por severidade, avisos de conteúdo
-protegido/safety, o seletor de idioma (pt-BR, en, es) e o saldo de créditos. Na área principal: seletor de
-programa/rotina, escopo (rotina, programa, projeto), a tabela de findings determinísticos do escopo (grátis)
-e os botões **Explicar**, **Revisar riscos e qualidade** e **Gerar documentação**, cada um com o custo em
-créditos ao lado (1 crédito; documentação do projeto inteiro custa 3). O chat fica no fim da página
-(1 crédito por pergunta). Cada resultado tem botão **Baixar Markdown**.
+`.streamlit/config.toml`). A barra lateral mostra saldo de créditos (com barra), idioma (pt-BR, en, es),
+o cartão do projeto (controlador, arquivo, tempo de leitura, métricas) e os findings por severidade.
+A área principal tem quatro seções, escolhidas no controle segmentado abaixo do arquivo:
+
+- **Programas e rotinas** — alvo (projeto / programa / rotina) com rótulos ricos (tipo, tamanho, main/fault,
+  protegida), cartão do alvo (descrição, quem chama, o que chama) e os botões **Explicar**, **Revisar** e
+  **Documentar** com custo e tooltip; abaixo, os findings do escopo e os resultados dessa seção.
+- **AOIs** — seletor, badges, relatório determinístico (grátis, com download), findings da AOI e
+  **Analisar AOI com o modelo**.
+- **Diagnóstico** — todos os findings com filtro por severidade, busca e CSV, mais as tags sem fio em FBD.
+- **Chat** — perguntas livres (1 crédito cada).
+
+Cada resultado tem botão **Baixar Markdown**; documentação do projeto inteiro custa 3 créditos, o resto 1.
+`APP_DEMO_FILE=caminho.L5X` abre um projeto automaticamente sem upload (útil para demonstrações e testes).
 
 Créditos são debitados só quando a chamada ao modelo termina com sucesso. Erros aparecem na tela:
 arquivo inválido, rotina protegida (botões desabilitados), camada LLM não configurada, limite de contexto,

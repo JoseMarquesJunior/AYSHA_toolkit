@@ -14,9 +14,10 @@ import hashlib
 import os
 import sys
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -105,6 +106,55 @@ UI: Dict[str, Dict[str, str]] = {
         "unconnected_help": "Referências de tag (IRef/ORef) e conectores colocados na folha sem nenhum fio: a tag não alimenta nem recebe nada. Blocos sem nenhum fio também aparecem. Análise determinística, sem custo.",
         "unconnected_none": "Nenhum elemento FBD sem fio neste projeto.",
         "unconnected_download": "Baixar lista (CSV)",
+        "nav_programs": "Programas e rotinas",
+        "nav_aois": "AOIs",
+        "nav_diag": "Diagnóstico",
+        "nav_chat": "Chat",
+        "how_title": "Como funciona",
+        "how_steps": "1. Exporte o projeto do Studio 5000 em L5X (File → Save As → L5X).\n2. Envie o arquivo: o parser lê programas, rotinas, tags, AOIs e gera findings na hora, sem custo.\n3. Peça ao modelo para explicar, revisar ou documentar; cada ação debita créditos só se concluir.",
+        "privacy_note": "O arquivo fica só nesta sessão e é apagado após a leitura. O modelo recebe apenas o índice estruturado, nunca o XML; conteúdo protegido não é decodificado.",
+        "file_section": "Arquivo do projeto",
+        "file_loaded": "**{name}** · {size:.1f} MB · lido em {secs:.1f} s · {programs} programas · {routines} rotinas",
+        "demo_loaded": "Arquivo de demonstração carregado de APP_DEMO_FILE.",
+        "empty_title": "Nenhum projeto carregado",
+        "target": "Alvo",
+        "target_hint": "Explicar e Revisar aceitam rotina ou programa; Documentar e Revisar aceitam o projeto inteiro.",
+        "size_rungs": "{n} rungs",
+        "size_lines": "{n} linhas",
+        "size_sheets": "{n} folha(s)",
+        "size_na": "não analisada",
+        "badge_protected": "protegida",
+        "badge_safety": "SAFETY",
+        "badge_main": "main",
+        "badge_fault": "fault",
+        "badge_unscheduled": "não agendado",
+        "badge_disabled": "desabilitado",
+        "called_by": "Chamada por: {names}",
+        "calls_to": "Chama: {names}",
+        "never_called": "Nunca chamada por JSR.",
+        "no_description": "Sem descrição no projeto.",
+        "explain_help": "Explica a lógica para um técnico de manutenção, rung a rung ou por bloco, citando rung/folha. Não disponível para o projeto inteiro.",
+        "review_help": "Prioriza os findings do parser, explica o impacto e sugere correções genéricas; separa o confirmado das hipóteses.",
+        "document_help": "Gera documentação em Markdown: visão geral, descrição por rotina, I/O, timers, intertravamentos e observações do parser.",
+        "disabled_llm": "Camada LLM não configurada.",
+        "disabled_protected": "Rotina protegida: sem conteúdo.",
+        "disabled_project": "Escolha um programa ou uma rotina.",
+        "results_clear": "Limpar resultados",
+        "results_empty": "Os resultados das ações desta área aparecem aqui, do mais recente para o mais antigo.",
+        "findings_title": "Findings do parser",
+        "findings_sev": "Severidade",
+        "findings_search": "Buscar por regra, local, tag ou mensagem",
+        "findings_shown": "{shown} de {total} findings",
+        "findings_download": "Baixar findings (CSV)",
+        "col_sev": "Sev.",
+        "col_rule": "Regra",
+        "col_where": "Local",
+        "col_tag": "Tag",
+        "col_msg": "Mensagem",
+        "col_evidence": "Evidência",
+        "col_safety": "Safety",
+        "credits_low": "Créditos acabando: {balance} restante(s).",
+        "credits_none": "Sem créditos. Peça mais ao administrador.",
         "disclaimer": "Análise automática: validar com o engenheiro responsável antes de qualquer alteração.",
     },
     "en": {
@@ -179,6 +229,55 @@ UI: Dict[str, Dict[str, str]] = {
         "unconnected_help": "Tag references (IRef/ORef) and connectors placed on the sheet without any wire: the tag feeds nothing and is fed by nothing. Blocks without any wire are listed too. Deterministic, free.",
         "unconnected_none": "No unwired FBD element in this project.",
         "unconnected_download": "Download list (CSV)",
+        "nav_programs": "Programs and routines",
+        "nav_aois": "AOIs",
+        "nav_diag": "Diagnostics",
+        "nav_chat": "Chat",
+        "how_title": "How it works",
+        "how_steps": "1. Export the project from Studio 5000 as L5X (File → Save As → L5X).\n2. Upload it: the parser reads programs, routines, tags and AOIs and produces findings instantly, free of charge.\n3. Ask the model to explain, review or document; each action is charged only when it completes.",
+        "privacy_note": "The file lives only in this session and is deleted after parsing. The model receives the structured index only, never the XML; protected content is not decoded.",
+        "file_section": "Project file",
+        "file_loaded": "**{name}** · {size:.1f} MB · parsed in {secs:.1f} s · {programs} programs · {routines} routines",
+        "demo_loaded": "Demo file loaded from APP_DEMO_FILE.",
+        "empty_title": "No project loaded",
+        "target": "Target",
+        "target_hint": "Explain and Review take a routine or a program; Document and Review also take the whole project.",
+        "size_rungs": "{n} rungs",
+        "size_lines": "{n} lines",
+        "size_sheets": "{n} sheet(s)",
+        "size_na": "not analyzed",
+        "badge_protected": "protected",
+        "badge_safety": "SAFETY",
+        "badge_main": "main",
+        "badge_fault": "fault",
+        "badge_unscheduled": "unscheduled",
+        "badge_disabled": "disabled",
+        "called_by": "Called by: {names}",
+        "calls_to": "Calls: {names}",
+        "never_called": "Never called by a JSR.",
+        "no_description": "No description in the project.",
+        "explain_help": "Explains the logic for a maintenance technician, rung by rung or by block, citing rung/sheet. Not available for the whole project.",
+        "review_help": "Prioritizes parser findings, explains impact and suggests generic fixes; separates confirmed facts from hypotheses.",
+        "document_help": "Generates Markdown documentation: overview, per-routine description, I/O, timers, interlocks and parser notes.",
+        "disabled_llm": "LLM layer not configured.",
+        "disabled_protected": "Protected routine: no content.",
+        "disabled_project": "Pick a program or a routine.",
+        "results_clear": "Clear results",
+        "results_empty": "Results of this area's actions appear here, newest first.",
+        "findings_title": "Parser findings",
+        "findings_sev": "Severity",
+        "findings_search": "Search by rule, location, tag or message",
+        "findings_shown": "{shown} of {total} findings",
+        "findings_download": "Download findings (CSV)",
+        "col_sev": "Sev.",
+        "col_rule": "Rule",
+        "col_where": "Location",
+        "col_tag": "Tag",
+        "col_msg": "Message",
+        "col_evidence": "Evidence",
+        "col_safety": "Safety",
+        "credits_low": "Running low on credits: {balance} left.",
+        "credits_none": "No credits left. Ask the administrator for more.",
         "disclaimer": "Automated analysis: validate with the responsible engineer before any change.",
     },
     "es": {
@@ -253,6 +352,55 @@ UI: Dict[str, Dict[str, str]] = {
         "unconnected_help": "Referencias de tag (IRef/ORef) y conectores colocados en la hoja sin ningún cable: la tag no alimenta ni recibe nada. Los bloques sin ningún cable también aparecen. Análisis determinístico, sin costo.",
         "unconnected_none": "Ningún elemento FBD sin cable en este proyecto.",
         "unconnected_download": "Descargar lista (CSV)",
+        "nav_programs": "Programas y rutinas",
+        "nav_aois": "AOIs",
+        "nav_diag": "Diagnóstico",
+        "nav_chat": "Chat",
+        "how_title": "Cómo funciona",
+        "how_steps": "1. Exporte el proyecto desde Studio 5000 en L5X (File → Save As → L5X).\n2. Suba el archivo: el parser lee programas, rutinas, tags y AOIs y genera findings al instante, sin costo.\n3. Pida al modelo explicar, revisar o documentar; cada acción se cobra solo si concluye.",
+        "privacy_note": "El archivo vive solo en esta sesión y se borra tras la lectura. El modelo recibe únicamente el índice estructurado, nunca el XML; el contenido protegido no se decodifica.",
+        "file_section": "Archivo del proyecto",
+        "file_loaded": "**{name}** · {size:.1f} MB · leído en {secs:.1f} s · {programs} programas · {routines} rutinas",
+        "demo_loaded": "Archivo de demostración cargado desde APP_DEMO_FILE.",
+        "empty_title": "Ningún proyecto cargado",
+        "target": "Objetivo",
+        "target_hint": "Explicar y Revisar aceptan rutina o programa; Documentar y Revisar aceptan el proyecto completo.",
+        "size_rungs": "{n} rungs",
+        "size_lines": "{n} líneas",
+        "size_sheets": "{n} hoja(s)",
+        "size_na": "no analizada",
+        "badge_protected": "protegida",
+        "badge_safety": "SAFETY",
+        "badge_main": "main",
+        "badge_fault": "fault",
+        "badge_unscheduled": "no programado",
+        "badge_disabled": "deshabilitado",
+        "called_by": "Llamada por: {names}",
+        "calls_to": "Llama: {names}",
+        "never_called": "Nunca llamada por JSR.",
+        "no_description": "Sin descripción en el proyecto.",
+        "explain_help": "Explica la lógica para un técnico de mantenimiento, rung a rung o por bloque, citando rung/hoja. No disponible para el proyecto completo.",
+        "review_help": "Prioriza los findings del parser, explica el impacto y sugiere correcciones genéricas; separa lo confirmado de las hipótesis.",
+        "document_help": "Genera documentación en Markdown: visión general, descripción por rutina, I/O, timers, enclavamientos y observaciones del parser.",
+        "disabled_llm": "Capa LLM no configurada.",
+        "disabled_protected": "Rutina protegida: sin contenido.",
+        "disabled_project": "Elija un programa o una rutina.",
+        "results_clear": "Limpiar resultados",
+        "results_empty": "Los resultados de las acciones de esta área aparecen aquí, del más reciente al más antiguo.",
+        "findings_title": "Findings del parser",
+        "findings_sev": "Severidad",
+        "findings_search": "Buscar por regla, lugar, tag o mensaje",
+        "findings_shown": "{shown} de {total} findings",
+        "findings_download": "Descargar findings (CSV)",
+        "col_sev": "Sev.",
+        "col_rule": "Regla",
+        "col_where": "Lugar",
+        "col_tag": "Tag",
+        "col_msg": "Mensaje",
+        "col_evidence": "Evidencia",
+        "col_safety": "Safety",
+        "credits_low": "Se acaban los créditos: quedan {balance}.",
+        "credits_none": "Sin créditos. Pida más al administrador.",
         "disclaimer": "Análisis automático: validar con el ingeniero responsable antes de cualquier cambio.",
     },
 }
@@ -337,23 +485,110 @@ def load_project(digest: str, _data: bytes, name: str) -> ProjectContext:
 
 
 # ----------------------------------------------------------------------------
+# Apresentação
+# ----------------------------------------------------------------------------
+SEV_ICON = {"error": "🔴", "warning": "🟠", "info": "🔵"}
+NAV = ("programs", "aois", "diag", "chat")
+NAV_ICON = {"programs": "📘", "aois": "🧩", "diag": "🩺", "chat": "💬"}
+AREA_MODES = {"programs": ("explain", "review", "document"), "aois": ("aoi",)}
+
+
+def routine_size(r: Any) -> str:
+    if r.protected:
+        return t("badge_protected")
+    if r.type == "RLL":
+        return t("size_rungs", n=len(r.rungs))
+    if r.type == "ST":
+        return t("size_lines", n=len(r.st_lines))
+    if r.type == "FBD":
+        return t("size_sheets", n=r.sheets)
+    return t("size_na")
+
+
+def routine_label(prog: Any, r: Any) -> str:
+    flags = []
+    if prog.main_routine and r.name.lower() == prog.main_routine.lower():
+        flags.append(t("badge_main"))
+    if prog.fault_routine and r.name.lower() == prog.fault_routine.lower():
+        flags.append(t("badge_fault"))
+    if r.protected:
+        flags.append("🔒")
+    tail = f" · {' '.join(flags)}" if flags else ""
+    return f"{r.name} · {r.type} · {routine_size(r)}{tail}"
+
+
+def program_label(p: Any) -> str:
+    flags = []
+    if p.task is None:
+        flags.append(t("badge_unscheduled"))
+    if p.disabled:
+        flags.append(t("badge_disabled"))
+    if p.is_safety:
+        flags.append(t("badge_safety"))
+    tail = f" · {', '.join(flags)}" if flags else ""
+    return f"{p.name} · {len(p.routines)} {t('routines').lower()}{tail}"
+
+
+def findings_rows(findings: List[Any]) -> List[Dict[str, Any]]:
+    return [{
+        "sev": f"{SEV_ICON.get(f.severity, '')} {f.severity}", "rule": f.rule, "where": f.location(), "tag": f.tag or "",
+        "message": f.message, "evidence": f.evidence or "", "safety": f.safety,
+    } for f in findings]
+
+
+def findings_csv(findings: List[Any]) -> str:
+    def cell(v: Any) -> str:
+        return str(v).replace(";", ",").replace("\n", " ")
+
+    lines = ["severidade;regra;local;tag;mensagem;evidencia;safety"]
+    for f in findings:
+        lines.append(";".join(cell(v) for v in (f.severity, f.rule, f.location(), f.tag or "", f.message, f.evidence or "", f.safety)))
+    return "\n".join(lines) + "\n"
+
+
+def filter_findings(findings: List[Any], severities: List[str], query: str) -> List[Any]:
+    q = (query or "").strip().lower()
+    out = []
+    for f in findings:
+        if severities and f.severity not in severities:
+            continue
+        if q and q not in " ".join((f.rule, f.location(), f.tag or "", f.message, f.evidence or "")).lower():
+            continue
+        out.append(f)
+    return out
+
+
+def unconnected_csv(rows: List[Dict[str, Any]]) -> str:
+    lines = ["programa;rotina;folha;tipo;elemento"]
+    for r in rows:
+        lines.append(";".join(str(r[k]) for k in ("programa", "rotina", "folha", "tipo", "elemento")))
+    return "\n".join(lines) + "\n"
+
+
+# ----------------------------------------------------------------------------
 # Telas
 # ----------------------------------------------------------------------------
 def login_screen(store: CreditStore) -> None:
     st.title(t("title"))
     st.caption(t("subtitle"))
-    with st.form("login"):
-        code = st.text_input(t("code_label"), type="password")
-        ok = st.form_submit_button(t("code_button"))
-    if ok:
-        entry = store.validate(code)
-        if entry is None:
-            st.error(t("code_invalid"))
-        else:
-            st.session_state["code"] = entry.code
-            st.session_state["owner"] = entry.owner
-            st.rerun()
-    st.info(t("code_hint"))
+    left, right = st.columns([1, 1], gap="large")
+    with left:
+        with st.form("login"):
+            code = st.text_input(t("code_label"), type="password")
+            ok = st.form_submit_button(t("code_button"), type="primary")
+        if ok:
+            entry = store.validate(code)
+            if entry is None:
+                st.error(t("code_invalid"))
+            else:
+                st.session_state["code"] = entry.code
+                st.session_state["owner"] = entry.owner
+                st.rerun()
+        st.info(t("code_hint"))
+    with right:
+        st.subheader(t("how_title"))
+        st.markdown(t("how_steps").replace("\n", "  \n"))
+        st.caption(t("privacy_note"))
 
 
 def sidebar(store: CreditStore, ctx: Optional[ProjectContext]) -> None:
@@ -362,8 +597,13 @@ def sidebar(store: CreditStore, ctx: Optional[ProjectContext]) -> None:
         st.markdown(t("welcome", owner=st.session_state.get("owner", "")))
         if entry:
             st.markdown(t("balance", balance=entry.balance, quota=entry.quota))
-        if st.button(t("logout"), key="logout"):
-            for k in ("code", "owner", "history", "results", "project_hash"):
+            st.progress(min(1.0, entry.balance / entry.quota) if entry.quota else 0.0)
+            if entry.balance <= 0:
+                st.error(t("credits_none"))
+            elif entry.balance <= max(2, entry.quota // 10):
+                st.warning(t("credits_low", balance=entry.balance))
+        if st.button(t("logout"), key="logout", width="stretch"):
+            for k in ("code", "owner", "history", "results", "project_hash", "file_meta", "nav"):
                 st.session_state.pop(k, None)
             st.rerun()
         st.selectbox(t("language"), options=list(LANG_LABELS), format_func=lambda k: LANG_LABELS[k], key="lang")
@@ -374,16 +614,22 @@ def sidebar(store: CreditStore, ctx: Optional[ProjectContext]) -> None:
         m = ctx.metrics
         c = ctx.ctrl
         st.subheader(t("summary"))
-        st.markdown(f"**{t('controller')}:** {c.name} ({c.processor_type or '?'})  \n**{t('revision')}:** {c.major_rev or '?'}.{c.minor_rev or '?'} · Studio 5000 {c.software_revision or '?'}")
+        st.markdown(f"**{c.name}**  \n{c.processor_type or '?'} · {t('revision')} {c.major_rev or '?'}.{c.minor_rev or '?'} · Studio 5000 {c.software_revision or '?'}")
+        meta = st.session_state.get("file_meta")
+        if meta:
+            st.caption(f"{meta['name']} · {meta['size_mb']:.1f} MB · {meta['secs']:.1f} s")
         cols = st.columns(2)
         cols[0].metric(t("programs"), m.programs)
         cols[1].metric(t("routines"), m.routines)
         cols = st.columns(2)
         cols[0].metric(t("rungs"), m.rungs)
         cols[1].metric(t("tags"), m.tags_controller + m.tags_program)
+        cols = st.columns(2)
+        cols[0].metric("AOIs", m.aois)
+        cols[1].metric("FBD", m.routines_by_type.get("FBD", 0))
         st.markdown(f"**{t('findings')}**")
         sev = m.findings_by_severity
-        st.markdown(" · ".join(f"{s}: **{sev.get(s, 0)}**" for s in SEVERITIES))
+        st.markdown(" · ".join(f"{SEV_ICON[s]} **{sev.get(s, 0)}** {s}" for s in SEVERITIES))
         protected = m.protected_routines + m.aois_protected
         if protected:
             st.warning(t("protected_warning", n=protected))
@@ -391,17 +637,40 @@ def sidebar(store: CreditStore, ctx: Optional[ProjectContext]) -> None:
             st.error(t("safety_warning"))
 
 
+def findings_panel(findings: List[Any], key: str, title: Optional[str] = None, expanded: bool = True) -> None:
+    """Tabela de findings com filtro por severidade, busca e download."""
+    total = len(findings)
+    with st.expander(title or t("deterministic", n=total), expanded=expanded):
+        if not findings:
+            st.caption(t("no_findings"))
+            return
+        f1, f2 = st.columns([1, 2])
+        with f1:
+            severities = st.pills(t("findings_sev"), list(SEVERITIES), selection_mode="multi", default=list(SEVERITIES),
+                                  format_func=lambda s: f"{SEV_ICON[s]} {s}", key=f"{key}_sev") or []
+        with f2:
+            query = st.text_input(t("findings_search"), key=f"{key}_q", placeholder="output_multiple_writes, Motor, rung 3…")
+        rows = filter_findings(findings, severities, query)
+        st.caption(t("findings_shown", shown=len(rows), total=total))
+        st.dataframe(
+            findings_rows(rows[:1000]), width="stretch", hide_index=True,
+            column_config={
+                "sev": st.column_config.TextColumn(t("col_sev"), width="small"),
+                "rule": st.column_config.TextColumn(t("col_rule"), width="medium"),
+                "where": st.column_config.TextColumn(t("col_where"), width="medium"),
+                "tag": st.column_config.TextColumn(t("col_tag"), width="small"),
+                "message": st.column_config.TextColumn(t("col_msg"), width="large"),
+                "evidence": st.column_config.TextColumn(t("col_evidence"), width="medium"),
+                "safety": st.column_config.CheckboxColumn(t("col_safety"), width="small"),
+            },
+        )
+        st.download_button(t("findings_download"), data=findings_csv(rows).encode("utf-8-sig"), file_name=f"findings_{key}.csv", mime="text/csv", key=f"{key}_dl")
+
+
 def findings_table(ctx: ProjectContext, program: Optional[str], routine: Optional[str], rows: Optional[List[Any]] = None, title: Optional[str] = None) -> None:
     if rows is None:
         rows = ctx.findings_for(program, routine)
-    with st.expander(title or t("deterministic", n=len(rows)), expanded=False):
-        if not rows:
-            st.caption(t("no_findings"))
-            return
-        st.dataframe(
-            [{"sev": f.severity, "regra": f.rule, "local": f.location(), "tag": f.tag or "", "mensagem": f.message, "safety": f.safety} for f in rows[:500]],
-            width="stretch", hide_index=True,
-        )
+    findings_panel(rows, key=f"f_{program or 'all'}_{routine or 'all'}".replace(" ", "_"), title=title, expanded=False)
 
 
 def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, program: Optional[str], routine: Optional[str], aoi: Optional[str] = None) -> None:
@@ -458,14 +727,120 @@ def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, p
         "usage": t("usage", model=result.model, calls=result.calls, inp=result.usage.input_tokens, out=result.usage.output_tokens, cache=result.usage.cache_read_tokens, ms=result.latency_ms),
         "refusal": result.refusal, "truncated": result.truncated,
     })
+    st.toast(title, icon="✅")
     st.rerun()
 
 
-def unconnected_csv(rows: List[Dict[str, Any]]) -> str:
-    lines = ["programa;rotina;folha;tipo;elemento"]
-    for r in rows:
-        lines.append(";".join(str(r[k]) for k in ("programa", "rotina", "folha", "tipo", "elemento")))
-    return "\n".join(lines) + "\n"
+def results_panel(ctx: ProjectContext, modes: Tuple[str, ...]) -> None:
+    results = [(i, r) for i, r in enumerate(st.session_state.get("results", [])) if r["mode"] in modes]
+    head, action = st.columns([4, 1])
+    head.subheader(t("results"))
+    if results and action.button(t("results_clear"), key=f"clear_{modes[0]}", width="stretch"):
+        st.session_state["results"] = [r for r in st.session_state.get("results", []) if r["mode"] not in modes]
+        st.rerun()
+    if not results:
+        st.caption(t("results_empty"))
+        return
+    lang = st.session_state.get("lang", "pt-BR")
+    for n, (i, r) in enumerate(results):
+        with st.expander(r["title"], expanded=(n == 0)):
+            if r.get("refusal"):
+                st.warning(t("refusal"))
+            if r.get("truncated"):
+                st.warning(t("truncated"))
+            st.markdown(r["text"])
+            st.caption(r["usage"])
+            md = result_markdown(r["title"], r["text"], ctx.ctrl.name, r["model"], lang)
+            fname = f"{ctx.ctrl.name}_{r['mode']}_{i}.md".replace(" ", "_")
+            st.download_button(t("download"), data=md.encode("utf-8"), file_name=fname, mime="text/markdown", key=f"dl_{i}")
+
+
+def target_card(ctx: ProjectContext, scope: str, prog: Any, rt: Any) -> None:
+    """Cartão com o contexto do alvo escolhido (descrição, chamadas, avisos)."""
+    if scope == "project":
+        c = ctx.ctrl
+        st.caption(f"{c.name} · {ctx.metrics.programs} {t('programs').lower()} · {ctx.metrics.routines} {t('routines').lower()} · " + ", ".join(f"{k}: {v}" for k, v in sorted(ctx.metrics.routines_by_type.items())))
+        return
+    if prog is None:
+        return
+    badges = []
+    if prog.is_safety:
+        badges.append(f":red-badge[{t('badge_safety')}]")
+    if prog.task is None:
+        badges.append(f":orange-badge[{t('badge_unscheduled')}]")
+    if prog.disabled:
+        badges.append(f":orange-badge[{t('badge_disabled')}]")
+    if scope == "routine" and rt is not None:
+        if rt.protected:
+            badges.append(f":gray-badge[🔒 {t('badge_protected')}]")
+        badges.append(f":blue-badge[{rt.type} · {routine_size(rt)}]")
+        desc = " ".join((rt.description or "").split()) or t("no_description")
+        callers = ctx.xref.callers_of(prog.name, rt.name)
+        is_root = rt.name.lower() in {(prog.main_routine or '').lower(), (prog.fault_routine or '').lower()}
+        lines = [desc]
+        if callers:
+            lines.append(t("called_by", names=", ".join(f"{p}/{r}" for p, r in callers[:6]) + (" …" if len(callers) > 6 else "")))
+        elif not is_root:
+            lines.append(t("never_called"))
+        if rt.calls:
+            lines.append(t("calls_to", names=", ".join(dict.fromkeys(rt.calls))))
+        if rt.aoi_calls:
+            lines.append("AOIs: " + ", ".join(dict.fromkeys(c.aoi for c in rt.aoi_calls)))
+    else:
+        badges.append(f":blue-badge[{len(prog.routines)} {t('routines').lower()}]")
+        desc = " ".join((prog.description or "").split()) or t("no_description")
+        lines = [desc, f"main: {prog.main_routine or '-'} · fault: {prog.fault_routine or '-'} · task: {prog.task or '-'}"]
+    st.markdown(" ".join(badges))
+    st.caption("  \n".join(lines))
+    if scope == "routine" and rt is not None:
+        if rt.protected:
+            st.warning(t("routine_protected"))
+        elif not rt.has_content:
+            st.info(t("routine_not_analyzed", type=rt.type))
+
+
+def programs_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
+    scope_labels = {"project": t("scope_project"), "program": t("scope_program"), "routine": t("scope_routine")}
+    st.session_state.setdefault("scope", "routine")
+    scope = st.segmented_control(t("target"), list(scope_labels), format_func=lambda k: scope_labels[k], key="scope", width="stretch") or "routine"
+    programs = ctx.ctrl.programs
+    prog = rt = None
+    if scope != "project" and programs:
+        c1, c2 = st.columns([1, 1])
+        by_name = {p.name: p for p in programs}
+        program = c1.selectbox(t("program"), list(by_name), format_func=lambda n: program_label(by_name[n]), key="sel_program")
+        prog = by_name[program]
+        if scope == "routine" and prog.routines:
+            by_r = {r.name: r for r in prog.routines}
+            routine = c2.selectbox(t("routine"), list(by_r), format_func=lambda n: routine_label(prog, by_r[n]), key="sel_routine")
+            rt = by_r[routine]
+    target_card(ctx, scope, prog, rt)
+    st.caption(t("target_hint"))
+
+    program = prog.name if prog else None
+    routine = rt.name if rt else None
+    reason = None
+    if not llm_ok:
+        reason = t("disabled_llm")
+    elif scope == "routine" and (rt is None or rt.protected):
+        reason = t("disabled_protected")
+    b1, b2, b3 = st.columns(3)
+    explain_reason = reason or (t("disabled_project") if scope == "project" else None)
+    cost_explain = action_cost("explain", scope)
+    cost_review = action_cost("review", scope)
+    cost_doc = action_cost("document", scope if scope != "routine" else "program")
+    if b1.button(f"✨ {t('explain')} · {t('cost', n=cost_explain)}", disabled=explain_reason is not None, width="stretch", type="primary",
+                 help=explain_reason or t("explain_help")):
+        run_action("explain", scope, ctx, store, program, routine)
+    if b2.button(f"🔍 {t('review')} · {t('cost', n=cost_review)}", disabled=reason is not None, width="stretch", help=reason or t("review_help")):
+        run_action("review", scope, ctx, store, program, routine)
+    doc_reason = t("disabled_llm") if not llm_ok else None
+    if b3.button(f"📄 {t('document')} · {t('cost', n=cost_doc)}", disabled=doc_reason is not None, width="stretch", help=doc_reason or t("document_help")):
+        run_action("document", "project" if scope == "project" else "program", ctx, store, program, routine)
+
+    findings_table(ctx, None if scope == "project" else program, routine if scope == "routine" else None)
+    st.divider()
+    results_panel(ctx, AREA_MODES["programs"])
 
 
 def unconnected_area(ctx: ProjectContext) -> None:
@@ -473,7 +848,7 @@ def unconnected_area(ctx: ProjectContext) -> None:
     rows = ctx.unconnected_rows()
     tags = sum(1 for r in rows if r["tag"])
     routines = len({(r["programa"], r["rotina"]) for r in rows})
-    with st.expander(t("unconnected_section", tags=tags, routines=routines), expanded=False):
+    with st.expander(t("unconnected_section", tags=tags, routines=routines), expanded=bool(rows)):
         st.caption(t("unconnected_help"))
         if not rows:
             st.caption(t("unconnected_none"))
@@ -482,9 +857,17 @@ def unconnected_area(ctx: ProjectContext) -> None:
         st.download_button(t("unconnected_download"), data=unconnected_csv(rows).encode("utf-8-sig"), file_name=f"{ctx.ctrl.name}_tags_sem_fio.csv".replace(" ", "_"), mime="text/csv", key="dl_unconnected")
 
 
+def diag_area(ctx: ProjectContext) -> None:
+    sev = ctx.metrics.findings_by_severity
+    cols = st.columns(3)
+    for col, s in zip(cols, SEVERITIES):
+        col.metric(f"{SEV_ICON[s]} {s}", sev.get(s, 0))
+    findings_panel(ctx.findings, key="project", title=t("findings_title") + f" ({len(ctx.findings)})", expanded=True)
+    unconnected_area(ctx)
+
+
 def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
     """Seção de AOIs: relatório determinístico (grátis) + análise pelo modelo (1 crédito)."""
-    st.subheader(t("aoi_section"))
     rows = ctx.aoi_rows()
     if not rows:
         st.caption(t("aoi_none"))
@@ -498,38 +881,32 @@ def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
     name = st.selectbox(t("aoi_select"), list(by_name), format_func=label, key="sel_aoi")
     row = by_name[name]
     f = row["findings"]
+    badges = [f":blue-badge[{row['parameters']} par.]", f":blue-badge[{row['instances']} inst.]", f":blue-badge[{row['calls']} calls]"]
+    if row["protected"]:
+        badges.append(f":gray-badge[🔒 {t('badge_protected')}]")
+    for s in SEVERITIES:
+        if f.get(s, 0):
+            color = {"error": "red", "warning": "orange", "info": "gray"}[s]
+            badges.append(f":{color}-badge[{SEV_ICON[s]} {f[s]} {s}]")
+    st.markdown(" ".join(badges))
     st.caption(t("aoi_summary", params=row["parameters"], locals=row["locals"], routines=row["routines"] or "-", instances=row["instances"], calls=row["calls"],
                   findings=" · ".join(f"{s}: {f.get(s, 0)}" for s in SEVERITIES)))
+    if row["description"]:
+        st.caption(row["description"])
     if row["protected"]:
         st.info(t("aoi_protected_msg"))
+    cost = action_cost("aoi", "aoi")
+    reason = t("disabled_llm") if not llm_ok else (t("disabled_protected") if row["protected"] else None)
+    if st.button(f"✨ {t('aoi_analyze')} · {t('cost', n=cost)}", disabled=reason is not None, help=reason or t("aoi_help"), key="btn_aoi", type="primary"):
+        run_action("aoi", "aoi", ctx, store, None, None, aoi=name)
     with st.expander(t("aoi_report"), expanded=False):
         md = ctx.aoi_markdown(name)
         st.markdown(md)
         st.download_button(t("aoi_download_report"), data=md.encode("utf-8"), file_name=f"{ctx.ctrl.name}_AOI_{name}.md".replace(" ", "_"), mime="text/markdown", key="dl_aoi_report")
     aoi_findings = ctx.aoi_findings(name)
-    findings_table(ctx, None, None, rows=aoi_findings, title=t("aoi_findings", n=len(aoi_findings)))
-    cost = action_cost("aoi", "aoi")
-    if st.button(f"{t('aoi_analyze')} · {t('cost', n=cost)}", disabled=not llm_ok or row["protected"], help=t("aoi_help"), key="btn_aoi"):
-        run_action("aoi", "aoi", ctx, store, None, None, aoi=name)
-
-
-def results_area(ctx: ProjectContext) -> None:
-    results = st.session_state.get("results", [])
-    if not results:
-        return
-    st.subheader(t("results"))
-    lang = st.session_state.get("lang", "pt-BR")
-    for i, r in enumerate(results):
-        with st.expander(r["title"], expanded=(i == 0)):
-            if r.get("refusal"):
-                st.warning(t("refusal"))
-            if r.get("truncated"):
-                st.warning(t("truncated"))
-            st.markdown(r["text"])
-            st.caption(r["usage"])
-            md = result_markdown(r["title"], r["text"], ctx.ctrl.name, r["model"], lang)
-            fname = f"{ctx.ctrl.name}_{r['mode']}_{i}.md".replace(" ", "_")
-            st.download_button(t("download"), data=md.encode("utf-8"), file_name=fname, mime="text/markdown", key=f"dl_{i}")
+    findings_panel(aoi_findings, key=f"aoi_{name}", title=t("aoi_findings", n=len(aoi_findings)), expanded=False)
+    st.divider()
+    results_panel(ctx, AREA_MODES["aois"])
 
 
 def chat_area(ctx: ProjectContext, store: CreditStore) -> None:
@@ -582,30 +959,52 @@ def chat_area(ctx: ProjectContext, store: CreditStore) -> None:
     st.rerun()
 
 
+def load_from_upload(data: bytes, name: str) -> Optional[ProjectContext]:
+    """Carrega (com cache por hash) e registra os metadados do arquivo na sessão."""
+    digest = file_hash(data)
+    if st.session_state.get("project_hash") != digest:
+        st.session_state["history"] = []
+        st.session_state["results"] = []
+        st.session_state["project_hash"] = digest
+        st.session_state.pop("file_meta", None)
+    t0 = time.perf_counter()
+    try:
+        with st.spinner(t("parsing")):
+            ctx = load_project(digest, data, name)
+    except L5XError as exc:
+        st.error(t("parse_error", error=exc))
+        return None
+    if "file_meta" not in st.session_state:
+        st.session_state["file_meta"] = {"name": name, "size_mb": len(data) / 1e6, "secs": time.perf_counter() - t0}
+    return ctx
+
+
 def main_area(store: CreditStore) -> Optional[ProjectContext]:
     st.title(t("title"))
     st.caption(t("subtitle"))
-    uploaded = st.file_uploader(t("upload_label"), type=["l5x", "L5X"], accept_multiple_files=False)
+    loaded = bool(st.session_state.get("project_hash"))
     ctx: Optional[ProjectContext] = None
-    if uploaded is not None:
-        data = uploaded.getvalue()
-        digest = file_hash(data)
-        if st.session_state.get("project_hash") != digest:
-            # novo arquivo: zera histórico e resultados do anterior
-            st.session_state["history"] = []
-            st.session_state["results"] = []
-            st.session_state["project_hash"] = digest
-        try:
-            with st.spinner(t("parsing")):
-                ctx = load_project(digest, data, uploaded.name)
-        except L5XError as exc:
-            st.error(t("parse_error", error=exc))
-            return None
+    with st.expander(t("file_section"), expanded=not loaded):
+        uploaded = st.file_uploader(t("upload_label"), type=["l5x", "L5X"], accept_multiple_files=False)
+        if uploaded is not None:
+            ctx = load_from_upload(uploaded.getvalue(), uploaded.name)
+        else:
+            demo = os.environ.get("APP_DEMO_FILE")
+            if demo and os.path.isfile(demo):
+                with open(demo, "rb") as fh:
+                    ctx = load_from_upload(fh.read(), os.path.basename(demo))
+                if ctx is not None:
+                    st.caption(t("demo_loaded"))
+        if ctx is not None:
+            meta = st.session_state.get("file_meta") or {"name": "", "size_mb": 0.0, "secs": 0.0}
+            st.success(t("file_loaded", name=meta["name"], size=meta["size_mb"], secs=meta["secs"], programs=ctx.metrics.programs, routines=ctx.metrics.routines))
     if ctx is None:
         st.info(t("no_project"))
+        st.subheader(t("how_title"))
+        st.markdown(t("how_steps").replace("\n", "  \n"))
+        st.caption(t("privacy_note"))
         return None
 
-    # --- camada LLM disponível? ---
     llm_ok = True
     try:
         get_llm()
@@ -613,51 +1012,25 @@ def main_area(store: CreditStore) -> Optional[ProjectContext]:
         llm_ok = False
         st.warning(t("llm_missing", error=exc.message))
 
-    # --- seleção de escopo ---
-    programs = [p.name for p in ctx.ctrl.programs]
-    c1, c2, c3 = st.columns([2, 2, 2])
-    program = c1.selectbox(t("program"), programs, key="sel_program") if programs else None
-    prog = ctx.ctrl.program(program) if program else None
-    routines = [r.name for r in prog.routines] if prog else []
-    routine = c2.selectbox(t("routine"), routines, key="sel_routine") if routines else None
-    scope_labels = {"routine": t("scope_routine"), "program": t("scope_program"), "project": t("scope_project")}
-    scope = c3.radio(t("scope"), list(scope_labels), format_func=lambda k: scope_labels[k], key="scope", horizontal=True)
-
-    rt = prog.routine(routine) if (prog and routine) else None
-    if scope == "routine" and rt is not None:
-        if rt.protected:
-            st.warning(t("routine_protected"))
-        elif not rt.has_content:
-            st.info(t("routine_not_analyzed", type=rt.type))
-
-    findings_table(ctx, None if scope == "project" else program, routine if scope == "routine" else None)
-    unconnected_area(ctx)
-
-    # --- ações ---
-    b1, b2, b3 = st.columns(3)
-    can_act = llm_ok and not (scope == "routine" and (rt is None or rt.protected))
-    explain_disabled = not can_act or scope == "project"
-    cost_explain = action_cost("explain", scope)
-    cost_review = action_cost("review", scope)
-    cost_doc = action_cost("document", scope if scope != "routine" else "program")
-    if b1.button(f"{t('explain')} · {t('cost', n=cost_explain)}", disabled=explain_disabled, width="stretch"):
-        run_action("explain", scope, ctx, store, program, routine)
-    if b2.button(f"{t('review')} · {t('cost', n=cost_review)}", disabled=not can_act, width="stretch"):
-        run_action("review", scope, ctx, store, program, routine)
-    if b3.button(f"{t('document')} · {t('cost', n=cost_doc)}", disabled=not llm_ok, width="stretch"):
-        run_action("document", "project" if scope == "project" else "program", ctx, store, program, routine)
-
-    st.divider()
-    aoi_area(ctx, store, llm_ok)
-    results_area(ctx)
-    st.divider()
-    if llm_ok:
-        chat_area(ctx, store)
+    nav_labels = {"programs": t("nav_programs"), "aois": t("nav_aois"), "diag": t("nav_diag"), "chat": t("nav_chat")}
+    st.session_state.setdefault("nav", "programs")
+    nav = st.segmented_control("nav", list(NAV), format_func=lambda k: f"{NAV_ICON[k]} {nav_labels[k]}", key="nav", label_visibility="collapsed") or "programs"
+    if nav == "programs":
+        programs_area(ctx, store, llm_ok)
+    elif nav == "aois":
+        aoi_area(ctx, store, llm_ok)
+    elif nav == "diag":
+        diag_area(ctx)
+    else:
+        if llm_ok:
+            chat_area(ctx, store)
+        else:
+            st.warning(t("llm_missing", error=t("disabled_llm")))
     return ctx
 
 
 def main() -> None:
-    st.set_page_config(page_title="Analisador L5X", page_icon="🔎", layout="wide")
+    st.set_page_config(page_title="Analisador L5X", page_icon="🔎", layout="wide", initial_sidebar_state="expanded")
     st.session_state.setdefault("lang", os.environ.get("APP_LANGUAGE", "pt-BR") if os.environ.get("APP_LANGUAGE") in LANGUAGES else "pt-BR")
     store = get_store()
     if not st.session_state.get("code"):

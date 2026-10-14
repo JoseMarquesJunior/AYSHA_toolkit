@@ -101,6 +101,10 @@ UI: Dict[str, Dict[str, str]] = {
         "aoi_analyze": "Analisar AOI com o modelo",
         "aoi_protected_msg": "AOI protegida (source protection): o parser lista instâncias e chamadas, mas não há lógica para analisar.",
         "aoi_help": "A análise pelo modelo usa a interface, os findings e as rotinas internas da AOI e devolve finalidade, comportamento, uso no projeto, riscos e um roteiro de debug.",
+        "unconnected_section": "Tags sem fio em rotinas FBD ({tags} tag(s) em {routines} rotina(s))",
+        "unconnected_help": "Referências de tag (IRef/ORef) e conectores colocados na folha sem nenhum fio: a tag não alimenta nem recebe nada. Blocos sem nenhum fio também aparecem. Análise determinística, sem custo.",
+        "unconnected_none": "Nenhum elemento FBD sem fio neste projeto.",
+        "unconnected_download": "Baixar lista (CSV)",
         "disclaimer": "Análise automática: validar com o engenheiro responsável antes de qualquer alteração.",
     },
     "en": {
@@ -171,6 +175,10 @@ UI: Dict[str, Dict[str, str]] = {
         "aoi_analyze": "Analyze AOI with the model",
         "aoi_protected_msg": "Source-protected AOI: the parser lists instances and calls, but there is no logic to analyze.",
         "aoi_help": "The model analysis uses the AOI interface, findings and internal routines and returns purpose, behaviour, usage in the project, risks and a debug guide.",
+        "unconnected_section": "Unwired tags in FBD routines ({tags} tag(s) in {routines} routine(s))",
+        "unconnected_help": "Tag references (IRef/ORef) and connectors placed on the sheet without any wire: the tag feeds nothing and is fed by nothing. Blocks without any wire are listed too. Deterministic, free.",
+        "unconnected_none": "No unwired FBD element in this project.",
+        "unconnected_download": "Download list (CSV)",
         "disclaimer": "Automated analysis: validate with the responsible engineer before any change.",
     },
     "es": {
@@ -241,6 +249,10 @@ UI: Dict[str, Dict[str, str]] = {
         "aoi_analyze": "Analizar AOI con el modelo",
         "aoi_protected_msg": "AOI protegida (source protection): el parser lista instancias y llamadas, pero no hay lógica para analizar.",
         "aoi_help": "El análisis del modelo usa la interfaz, los findings y las rutinas internas de la AOI y devuelve finalidad, comportamiento, uso en el proyecto, riesgos y una guía de debug.",
+        "unconnected_section": "Tags sin cable en rutinas FBD ({tags} tag(s) en {routines} rutina(s))",
+        "unconnected_help": "Referencias de tag (IRef/ORef) y conectores colocados en la hoja sin ningún cable: la tag no alimenta ni recibe nada. Los bloques sin ningún cable también aparecen. Análisis determinístico, sin costo.",
+        "unconnected_none": "Ningún elemento FBD sin cable en este proyecto.",
+        "unconnected_download": "Descargar lista (CSV)",
         "disclaimer": "Análisis automático: validar con el ingeniero responsable antes de cualquier cambio.",
     },
 }
@@ -449,6 +461,27 @@ def run_action(mode: str, scope: str, ctx: ProjectContext, store: CreditStore, p
     st.rerun()
 
 
+def unconnected_csv(rows: List[Dict[str, Any]]) -> str:
+    lines = ["programa;rotina;folha;tipo;elemento"]
+    for r in rows:
+        lines.append(";".join(str(r[k]) for k in ("programa", "rotina", "folha", "tipo", "elemento")))
+    return "\n".join(lines) + "\n"
+
+
+def unconnected_area(ctx: ProjectContext) -> None:
+    """Elementos FBD sem fio (tags soltas na folha), agrupados por rotina. Grátis."""
+    rows = ctx.unconnected_rows()
+    tags = sum(1 for r in rows if r["tag"])
+    routines = len({(r["programa"], r["rotina"]) for r in rows})
+    with st.expander(t("unconnected_section", tags=tags, routines=routines), expanded=False):
+        st.caption(t("unconnected_help"))
+        if not rows:
+            st.caption(t("unconnected_none"))
+            return
+        st.dataframe([{k: r[k] for k in ("programa", "rotina", "folha", "tipo", "elemento")} for r in rows[:1000]], width="stretch", hide_index=True)
+        st.download_button(t("unconnected_download"), data=unconnected_csv(rows).encode("utf-8-sig"), file_name=f"{ctx.ctrl.name}_tags_sem_fio.csv".replace(" ", "_"), mime="text/csv", key="dl_unconnected")
+
+
 def aoi_area(ctx: ProjectContext, store: CreditStore, llm_ok: bool) -> None:
     """Seção de AOIs: relatório determinístico (grátis) + análise pelo modelo (1 crédito)."""
     st.subheader(t("aoi_section"))
@@ -598,6 +631,7 @@ def main_area(store: CreditStore) -> Optional[ProjectContext]:
             st.info(t("routine_not_analyzed", type=rt.type))
 
     findings_table(ctx, None if scope == "project" else program, routine if scope == "routine" else None)
+    unconnected_area(ctx)
 
     # --- ações ---
     b1, b2, b3 = st.columns(3)

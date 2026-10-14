@@ -6,6 +6,7 @@
     python -m l5x_core.cli file.L5X --aois                       # tabela de AOIs
     python -m l5x_core.cli file.L5X --aoi NomeDaAoi              # relatório Markdown (documentação + debug)
     python -m l5x_core.cli file.L5X --aoi NomeDaAoi --aoi-text   # texto da AOI como o LLM recebe
+    python -m l5x_core.cli file.L5X --unconnected                # tags soltas (sem fio) em rotinas FBD
     python -m l5x_core.cli file.L5X --json saida.json
 """
 
@@ -53,6 +54,7 @@ def main(argv: List[str] | None = None) -> int:
     ap.add_argument("--aois", action="store_true", help="tabela das AOIs: parâmetros, rotinas, instâncias, chamadas e findings")
     ap.add_argument("--aoi", metavar="NOME", help="relatório Markdown de uma AOI (documentação + roteiro de debug)")
     ap.add_argument("--aoi-text", action="store_true", help="com --aoi: imprime o texto da AOI como o LLM recebe, em vez do relatório")
+    ap.add_argument("--unconnected", action="store_true", help="tabela de elementos FBD sem fio (tags soltas na folha), por rotina")
     ap.add_argument("--json", metavar="SAIDA.json", help="grava modelo + findings + métricas em JSON")
     args = ap.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):  # Windows consoles default to cp1252
@@ -101,6 +103,14 @@ def main(argv: List[str] | None = None) -> int:
         for r in rows:
             f = r["findings"]
             print(f"{r['aoi'][:28]:<28} {r['revision'][:7]:<7} {'sim' if r['protected'] else '':<5} {r['parameters']:>4} {r['locals']:>4} {r['instances']:>5} {r['calls']:>5} {f.get('error', 0):>4} {f.get('warning', 0):>4} {f.get('info', 0):>4}  {r['routines']}")
+    if args.unconnected:
+        rows = [(scope, r.name, d) for scope, routines in [(p.name, p.routines) for p in ctrl.programs] + [(f"aoi:{a.name}", a.routines) for a in ctrl.aois] for r in routines for d in r.dangling]
+        routines_hit = {(s, r) for s, r, _ in rows}
+        print(f"\n{len(rows)} elemento(s) FBD sem fio em {len(routines_hit)} rotina(s)")
+        print(f"{'programa':<28} {'rotina':<28} {'folha':>5} {'tipo':<18} elemento")
+        print("-" * 110)
+        for scope, name, d in rows:
+            print(f"{scope[:28]:<28} {name[:28]:<28} {d.sheet:>5} {d.kind:<18} {d.operand}")
     if args.aoi:
         try:
             report = build_aoi_report(ctrl, args.aoi, xref, findings)
@@ -117,7 +127,7 @@ def main(argv: List[str] | None = None) -> int:
         with open(args.json, "w", encoding="utf-8") as fh:
             fh.write(to_json(ctrl, findings, metrics))
         print(f"JSON gravado em {args.json}", file=sys.stderr)
-    if not any((args.summary, args.findings, args.dump_routine, args.tags, args.aois, args.aoi, args.json)):
+    if not any((args.summary, args.findings, args.dump_routine, args.tags, args.aois, args.aoi, args.unconnected, args.json)):
         ov = project_overview(ctrl, findings, metrics)
         print(ov.text)
     return 0

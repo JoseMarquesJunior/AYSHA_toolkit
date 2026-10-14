@@ -183,6 +183,17 @@ class ProjectContext:
             self._routine_cache[key] = sr
         return sr
 
+    # ---- FBD: elements without wires ---------------------------------------
+    def unconnected_rows(self) -> List[Dict[str, Any]]:
+        """Uma linha por elemento FBD sem fio (tag solta na folha), em programas e AOIs."""
+        rows: List[Dict[str, Any]] = []
+        scopes = [(p.name, p.routines) for p in self.ctrl.programs] + [(f"{AOI_PREFIX}{a.name}", a.routines) for a in self.ctrl.aois]
+        for scope, routines in scopes:
+            for r in routines:
+                for d in r.dangling:
+                    rows.append({"programa": scope, "rotina": r.name, "folha": d.sheet, "tipo": d.kind, "elemento": d.operand, "tag": d.is_tag})
+        return rows
+
     # ---- AOIs ---------------------------------------------------------------
     def aoi_names(self) -> List[str]:
         return [a.name for a in self.ctrl.aois]

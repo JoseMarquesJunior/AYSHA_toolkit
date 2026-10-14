@@ -176,6 +176,20 @@ samples/           projetos reais (ignorado pelo git)
 Métricas (`Metrics`): programas, rotinas por tipo, rungs, linhas ST, instruções, tags por escopo, AOIs
 (e protegidas), UDTs, módulos, tasks, maior rotina, profundidade máxima de ramos, % de rungs comentados.
 
+## Tags sem fio em rotinas FBD
+
+Em edições de FBD é comum sobrar uma referência de tag (IRef/ORef) na folha sem nenhum fio: a tag
+está lá, mas não alimenta nem recebe nada. O parser registra, por rotina FBD, todo elemento sem fio
+(`Routine.dangling`: IRef sem fio de saída, ORef sem fio de entrada, ICon/OCon sem fio e blocos/AOIs
+sem nenhum fio) e a regra `fbd_unconnected_tag` gera um finding **por rotina** (warning quando há tags
+soltas; info se só houver bloco isolado), com folha, tipo e tag na evidência. O foco é a rotina, não o
+bloco: pinos visíveis de um bloco sem fio não são considerados, pois normalmente usam o valor da tag.
+
+- CLI: `python -m l5x_core.cli projeto.L5X --unconnected` (tabela) ou
+  `--findings --rule fbd_unconnected_tag`.
+- App: expander **Tags sem fio em rotinas FBD** logo abaixo dos findings, com download em CSV.
+- O texto das rotinas FBD enviado ao modelo inclui a linha `SEM FIO: …`, então Revisar e Chat enxergam o caso.
+
 ## Análise, documentação e debug de AOIs
 
 Função dedicada às Add-On Instructions, em três camadas:

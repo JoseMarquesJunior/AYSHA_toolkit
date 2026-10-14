@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from lxml import etree
 
 from .model import (
-    Aoi, AoiCall, AoiParameter, Controller, DataType, DataTypeMember, Finding, Module,
+    Aoi, AoiCall, AoiParameter, Controller, DanglingRef, DataType, DataTypeMember, Finding, Module,
     Program, Routine, Rung, STLine, Tag, TagRef, Task, READ, WRITE, READWRITE,
 )
 from .rung_text import parse_rung, RungSyntaxError, split_tag_path
@@ -388,6 +388,39 @@ class _L5XParser:
         routine.sheets = sheet_no
         if source == "fbd":
             self._fbd_aoi_calls(content, routine)
+            self._fbd_dangling(content, routine)
+
+    @staticmethod
+    def _fbd_dangling(content: etree._Element, routine: Routine) -> None:
+        """FBD elements with no wire attached: IRef without an outgoing wire, ORef without an
+        incoming one, connectors without their wire, and blocks/AOIs with no wire at all."""
+        sheets = list(content.iterfind("Sheet")) or [content]
+        for sheet_no, sheet in enumerate(sheets, 1):
+            number = int(sheet.get("Number") or sheet_no) if sheet is not content else sheet_no
+            wires = [w for w in sheet if w.tag in ("Wire", "FeedbackWire")]
+            sources = {w.get("FromID") for w in wires}
+            targets = {w.get("ToID") for w in wires}
+            for node in sheet:
+                nid = node.get("ID")
+                if nid is None:
+                    continue
+                kind = node.tag
+                if kind in ("IRef", "ICon"):
+                    loose = nid not in sources
+                elif kind in ("ORef", "OCon"):
+                    loose = nid not in targets
+                elif kind in ("Block", "AddOnInstruction"):
+                    loose = nid not in sources and nid not in targets
+                else:
+                    continue
+                if not loose:
+                    continue
+                operand = node.get("Operand") or node.get("Name") or node.get("Type") or "?"
+                try:
+                    x, y = int(node.get("X") or 0), int(node.get("Y") or 0)
+                except ValueError:
+                    x = y = None
+                routine.dangling.append(DanglingRef(kind=kind, operand=operand, sheet=number, x=x, y=y))
 
     def _fbd_aoi_calls(self, content: etree._Element, routine: Routine) -> None:
         """AddOnInstruction nodes of an FBD routine, with the operands wired to each pin.

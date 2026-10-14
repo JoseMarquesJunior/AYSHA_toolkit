@@ -181,7 +181,8 @@ def test_report(actrl, axref, afindings):
     assert rep.aoi.name == "Valve" and rep.scope == "aoi:Valve"
     assert [i.tag.name for i in rep.instances] == ["XV1", "XV2", "XV3", "XV_Arr"]
     xv1 = rep.instances[0]
-    assert [s.call.source for s in xv1.calls] == ["rll", "fbd"] and xv1.member_reads == {"Sts_Fault": ["Main / MainRoutine / rung 5"]}
+    assert [s.call.source for s in xv1.calls] == ["rll", "fbd"]
+    assert xv1.member_reads == {"Sts_Fault": ["Main / MainRoutine / rung 5", "Main / FbdRoutine / sheet 2"]}  # o IRef solto da folha 2 ainda conta como leitura
     assert rep.instances[2].member_reads and not rep.instances[2].calls
     assert len(rep.calls) == 4 and rep.calls_by_source() == {"rll": 2, "st": 1, "fbd": 1}
     assert rep.params["out_open"].writes == 3 and rep.params["out_open"].reads == 1

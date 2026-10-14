@@ -6,7 +6,7 @@ Rules (ids used in Finding.rule):
   output_mixed_latch, timer_no_preset, jsr_missing_routine,
   rungs_without_comment, routine_no_description, routine_protected,
   aoi_protected, safety_content, unknown_instruction, unresolved_tags,
-  rung_parse_error (emitted by the parser), plus the aoi_* rules of aoi.py
+  fbd_unconnected_tag, rung_parse_error (emitted by the parser), plus the aoi_* rules of aoi.py
   (all with program="aoi:<Name>").
 """
 
@@ -235,6 +235,37 @@ def rule_documentation(ctrl: Controller) -> List[Finding]:
     return out
 
 
+def rule_fbd_unconnected(ctrl: Controller) -> List[Finding]:
+    """FBD routines with tag references (IRef/ORef) or connectors left without any wire,
+    i.e. a tag placed on the sheet that feeds nothing / is fed by nothing. One finding per
+    routine; isolated blocks are mentioned in the evidence."""
+    out: List[Finding] = []
+    scopes = [(p.name, p.routines, p.is_safety) for p in ctrl.programs] + [(f"{AOI_PREFIX}{a.name}", a.routines, a.is_safety) for a in ctrl.aois]
+    for scope, routines, safety in scopes:
+        for routine in routines:
+            if not routine.dangling:
+                continue
+            tags = [d for d in routine.dangling if d.kind in ("IRef", "ORef", "ICon", "OCon")]
+            blocks = [d for d in routine.dangling if d.kind in ("Block", "AddOnInstruction")]
+            if not tags and not blocks:
+                continue
+            inputs = sum(1 for d in tags if d.kind in ("IRef", "ICon"))
+            outputs = len(tags) - inputs
+            parts = [f"folha {d.sheet}: {d.kind} {d.operand}" for d in tags] + [f"folha {d.sheet}: bloco isolado {d.kind} {d.operand}" for d in blocks]
+            if tags:
+                msg = (f"{len(tags)} referência(s) de tag sem fio na rotina FBD '{routine.name}' "
+                       f"({inputs} entrada(s), {outputs} saída(s)): a tag está na folha mas não alimenta nem recebe nada (provável sobra de edição).")
+                if blocks:
+                    msg += f" Há ainda {len(blocks)} bloco(s) sem nenhum fio."
+            else:
+                msg = f"{len(blocks)} bloco(s) sem nenhum fio na rotina FBD '{routine.name}'."
+            out.append(Finding(
+                rule="fbd_unconnected_tag", severity="warning" if tags else "info", program=scope, routine=routine.name,
+                tag=tags[0].operand if tags else blocks[0].operand, message=msg, evidence=_join(parts, 12), safety=safety,
+            ))
+    return out
+
+
 def rule_protected(ctrl: Controller) -> List[Finding]:
     out: List[Finding] = []
     for prog in ctrl.programs:
@@ -345,6 +376,7 @@ def analyze(ctrl: Controller, xref: Optional[CrossRef] = None) -> Tuple[List[Fin
     findings += rule_output_writes(ctrl, xref)
     findings += rule_timer_preset(ctrl, xref)
     findings += rule_tag_usage(ctrl, xref)
+    findings += rule_fbd_unconnected(ctrl)
     findings += rule_protected(ctrl)
     findings += rule_safety(ctrl)
     findings += rule_documentation(ctrl)

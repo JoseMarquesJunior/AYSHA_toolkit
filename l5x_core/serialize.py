@@ -263,6 +263,8 @@ def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[Cr
             note_tag(ref.tag_base, ref.program)
     else:
         add(f"Rotina {rt.type}: {rt.sheets} folha(s), {rt.size} elementos gráficos. Conteúdo não analisado em detalhe no MVP; tags referenciadas (aproximado):")
+        if rt.dangling:
+            add("SEM FIO (elementos na folha sem nenhuma conexão): " + ", ".join(f"{d.kind} {d.operand} (folha {d.sheet})" for d in rt.dangling[:20]) + (" …" if len(rt.dangling) > 20 else ""))
         for ref in rt.tag_refs:
             note_tag(ref.tag_base, ref.program)
     add("")

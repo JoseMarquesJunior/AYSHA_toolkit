@@ -227,6 +227,18 @@
 <Wire FromID="3" FromParam="Out_Open" ToID="5"/>
 <Wire FromID="3" FromParam="Sts_Fault" ToID="6"/>
 </Sheet>
+<Sheet Number="2">
+<IRef ID="0" X="100" Y="100" Operand="RawA" HideDesc="false"/>
+<Block Type="SCL" ID="1" X="300" Y="100" Operand="Scl_FB" VisiblePins="In Out" HideDesc="false"/>
+<ORef ID="2" X="500" Y="100" Operand="SclOut" HideDesc="false"/>
+<Wire FromID="0" ToID="1" ToParam="In"/>
+<Wire FromID="1" FromParam="Out" ToID="2"/>
+<IRef ID="3" X="100" Y="300" Operand="Loose_In" HideDesc="false"/>
+<IRef ID="4" X="100" Y="340" Operand="XV1.Sts_Fault" HideDesc="false"/>
+<ORef ID="5" X="500" Y="300" Operand="Loose_Out" HideDesc="false"/>
+<Block Type="BNOT" ID="6" X="300" Y="400" Operand="Lonely_BNOT" VisiblePins="In Out" HideDesc="false"/>
+<TextBox ID="7" X="100" Y="500" Width="200" Text="anotação"/>
+</Sheet>
 </FBDContent>
 </Routine>
 </Routines>

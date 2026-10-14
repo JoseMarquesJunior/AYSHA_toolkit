@@ -112,6 +112,22 @@ class AoiCall:
 
 
 @dataclass
+class DanglingRef:
+    """An FBD element left without any wire: a tag reference (IRef/ORef), a
+    connector (ICon/OCon) or an isolated block. Usually a leftover of an edit."""
+
+    kind: str  # IRef | ORef | ICon | OCon | Block | AddOnInstruction
+    operand: str  # tag path, connector name or block operand
+    sheet: int
+    x: Optional[int] = None
+    y: Optional[int] = None
+
+    @property
+    def is_tag(self) -> bool:
+        return self.kind in ("IRef", "ORef")
+
+
+@dataclass
 class Routine:
     name: str
     type: str  # RLL | ST | FBD | SFC | other
@@ -122,6 +138,7 @@ class Routine:
     tag_refs: List[TagRef] = field(default_factory=list)  # approximate refs (ST/FBD/SFC)
     calls: List[str] = field(default_factory=list)  # JSR / FOR targets (routine names)
     aoi_calls: List[AoiCall] = field(default_factory=list)  # AOI invocations (RLL exact, ST/FBD approximate)
+    dangling: List[DanglingRef] = field(default_factory=list)  # FBD elements without wires
     size: int = 0  # rungs, lines or graphic nodes depending on type
     sheets: int = 0  # FBD only
 

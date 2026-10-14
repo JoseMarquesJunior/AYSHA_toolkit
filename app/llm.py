@@ -47,6 +47,8 @@ LANGUAGES: Dict[str, str] = {
     "pt-BR": "português do Brasil",
     "en": "English",
     "es": "español",
+    "zh-CN": "中文（简体）",
+    "hi": "हिन्दी (Hindi)",
 }
 
 MODES = ("explain", "review", "document", "chat", "aoi")

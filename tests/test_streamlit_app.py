@@ -141,6 +141,11 @@ def test_helpers():
 
 
 def test_ui_dictionaries_complete():
+    from app.llm import LANGUAGES
+
     keys = set(UI["pt-BR"])
-    for lang in ("en", "es"):
+    assert set(UI) == set(LANGUAGES) == {"pt-BR", "en", "es", "zh-CN", "hi"}
+    for lang in UI:
         assert set(UI[lang]) == keys, lang
+        for k, v in UI[lang].items():
+            assert {p for p in __import__("re").findall(r"\{(\w+)", v)} == {p for p in __import__("re").findall(r"\{(\w+)", UI["pt-BR"][k])}, (lang, k)  # mesmos placeholders

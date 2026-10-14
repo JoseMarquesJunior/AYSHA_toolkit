@@ -24,7 +24,7 @@ streamlit run app/streamlit_app.py
 ```
 
 Abra http://localhost:8501, digite o código de acesso, envie o `.L5X` (limite de 300 MB em
-`.streamlit/config.toml`). A barra lateral mostra saldo de créditos (com barra), idioma (pt-BR, en, es),
+`.streamlit/config.toml`). A barra lateral mostra saldo de créditos (com barra), idioma (pt-BR, en, es, zh-CN, hi),
 o cartão do projeto (controlador, arquivo, tempo de leitura, métricas) e os findings por severidade.
 A área principal tem quatro seções, escolhidas no controle segmentado abaixo do arquivo:
 
@@ -95,7 +95,7 @@ Configuração: copie `.env.example` para `.env` (ou `.streamlit/secrets.toml.ex
 https://docs.claude.com/en/docs/about-claude/models. Variáveis opcionais: `LLM_EFFORT_FAST` /
 `LLM_EFFORT_DEEP` (`low`…`max`; deixe vazio para modelos que não aceitam `output_config.effort`),
 `MAX_CONTEXT_TOKENS` (padrão 60000), `MAX_OUTPUT_TOKENS` (64000; até 128000 com streaming),
-`LLM_MAX_CONTINUATIONS` (2: quantas vezes o app pede "continue" quando a resposta para por `max_tokens`), `APP_LANGUAGE` (`pt-BR`, `en`, `es`),
+`LLM_MAX_CONTINUATIONS` (2: quantas vezes o app pede "continue" quando a resposta para por `max_tokens`), `APP_LANGUAGE` (`pt-BR`, `en`, `es`, `zh-CN`, `hi`),
 `LLM_LOG_PATH` (CSV de métricas; vazio desativa).
 
 Teste manual com chave real:
@@ -332,6 +332,15 @@ Confirmadas nos dois L5X de exemplo (Studio 5000 v35):
   CMP, ABS, SQR, NEG, AND/OR/XOR/NOT, BTD, BSL/BSR, FAL/FSC, SIZE, SWPB, MVM, GSV/SSV, CONCAT/LOWER/UPPER/MID/
   DELETE/INSERT/FIND/DTOS/STOD/RTOS/STOR, PID, FOR/BRK, UID/UIE, MCR, EVENT, IOT. Nenhuma instrução
   desconhecida restou nos dois exemplos.
+
+## Idiomas
+
+Interface e respostas do modelo em português (BR), inglês, espanhol, chinês simplificado (`zh-CN`) e
+hindi (`hi`). Os textos de interface estão em `UI` no `app/streamlit_app.py` (um dicionário por idioma, com
+teste de paridade de chaves e placeholders); o modelo responde no idioma escolhido e traduz as mensagens dos
+findings ao citá-las, mantendo identificadores. As mensagens geradas pelo parser (findings, relatórios
+determinísticos, CSV/Excel) continuam em português. As traduções para chinês e hindi foram feitas sem revisão
+de falante nativo; recomenda-se revisar os termos técnicos antes de oferecer esses idiomas a clientes.
 
 ## Privacidade
 

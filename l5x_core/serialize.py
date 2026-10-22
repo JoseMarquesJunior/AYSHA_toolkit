@@ -296,6 +296,8 @@ def routine_text(ctrl: Controller, program: str, routine: str, xref: Optional[Cr
                 label += f", default {default}"
         else:
             label = "ctrl" if tag.scope == "controller" else tag.scope
+            if tag.data_type.upper() in ("TIMER", "COUNTER") and isinstance(tag.values, dict) and tag.values.get("PRE") is not None:
+                label += f", PRE={tag.values['PRE']}"  # preset no valor da tag (o texto do rung traz '?')
         alias = f" alias de {tag.alias_for}" if tag.alias_for else ""
         reads = len(xref.reads_of(tag))
         writes = len(xref.writes_of(tag))

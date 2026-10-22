@@ -37,6 +37,10 @@ A área principal tem quatro seções, escolhidas no controle segmentado abaixo 
 - **Chat** — perguntas livres (1 crédito cada).
 
 Cada resultado tem botão **Baixar Markdown**; documentação do projeto inteiro custa 3 créditos, o resto 1.
+Quem não tem um L5X à mão clica em **Testar com programa de demonstração**, logo abaixo do upload: abre
+`app/demo/EB01_Estacao_Bombeamento_DEMO.L5X`, um projeto sintético de estação de bombeamento (2 bombas em rodízio,
+AOIs `P_Motor`/`AI_Std`/`P_Alm`, alarmes ALMD, I/O comentado) com problemas plantados de propósito: rotina nunca
+chamada, programa não agendado, saída escrita em dois lugares, OTE misturado com OTU, timer sem preset e tag FBD sem fio.
 `APP_DEMO_FILE=caminho.L5X` abre um projeto automaticamente sem upload (útil para demonstrações e testes).
 
 Créditos são debitados só quando a chamada ao modelo termina com sucesso. Erros aparecem na tela:
@@ -65,6 +69,19 @@ quando o app inicia.
    `ACCESS_CODES = "CODIGO1:nome:20,CODIGO2:nome2:10"` (o disco do Community Cloud é efêmero, então o
    SQLite é recriado a cada deploy e semeado a partir desse secret; o consumo de créditos reinicia junto).
 4. O limite de upload vem de `.streamlit/config.toml` (300 MB).
+
+### Mídia de demonstração (GIF/MP4 para Telegram, LinkedIn etc.)
+
+```bash
+pip install playwright pillow imageio-ffmpeg && python -m playwright install chromium
+python docs/portfolio_src/gravar_demo.py            # gera docs/demo/aysha_demo.gif e docs/demo/aysha_demo.mp4
+python docs/portfolio_src/gravar_demo.py --chat     # idem + aba Chat no fim: docs/demo/aysha_demo_chat.{gif,mp4} (~40 s)
+```
+
+O script sobe o app localmente (banco de créditos temporário, código `DEMO`), clica em **Testar com programa de
+demonstração**, escolhe a rotina `Partida_Bombas`, clica em **Explicar** e grava a explicação rung a rung: 20 a 30 s
+depois de cortar as esperas. Faz **uma** chamada real ao modelo com a chave do `.env` (duas com `--chat`, que ainda
+pergunta "Quando a sirene toca e o que faz ela parar?" no Chat). `--url` grava contra outro endereço; `--keep-frames` mantém os PNGs.
 
 ## Instalação e uso da CLI
 

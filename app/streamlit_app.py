@@ -160,7 +160,9 @@ UI: Dict[str, Dict[str, str]] = {
         "privacy_note": "O arquivo fica só nesta sessão e é apagado após a leitura. O modelo recebe apenas o índice estruturado, nunca o XML; conteúdo protegido não é decodificado.",
         "file_section": "Arquivo do projeto",
         "file_loaded": "**{name}** · {size:.1f} MB · lido em {secs:.1f} s · {programs} programas · {routines} rotinas",
-        "demo_loaded": "Arquivo de demonstração carregado de APP_DEMO_FILE.",
+        "demo_loaded": "Projeto de demonstração carregado (sintético, não é uma planta real). Envie seu próprio .L5X acima para substituí-lo.",
+        "demo_button": "Testar com programa de demonstração",
+        "demo_hint": "Não tem um L5X à mão? Use o projeto sintético de uma estação de bombeamento: 2 bombas em rodízio, AOIs, alarmes e alguns problemas plantados de propósito.",
         "empty_title": "Nenhum projeto carregado",
         "target": "Alvo",
         "target_hint": "Explicar e Revisar aceitam rotina ou programa; Documentar e Revisar aceitam o projeto inteiro.",
@@ -325,7 +327,9 @@ UI: Dict[str, Dict[str, str]] = {
         "privacy_note": "The file lives only in this session and is deleted after parsing. The model receives the structured index only, never the XML; protected content is not decoded.",
         "file_section": "Project file",
         "file_loaded": "**{name}** · {size:.1f} MB · parsed in {secs:.1f} s · {programs} programs · {routines} routines",
-        "demo_loaded": "Demo file loaded from APP_DEMO_FILE.",
+        "demo_loaded": "Demo project loaded (synthetic, not a real plant). Upload your own .L5X above to replace it.",
+        "demo_button": "Try it with a demo program",
+        "demo_hint": "No L5X at hand? Use the synthetic pumping-station project: 2 pumps in rotation, AOIs, alarms and a few issues planted on purpose.",
         "empty_title": "No project loaded",
         "target": "Target",
         "target_hint": "Explain and Review take a routine or a program; Document and Review also take the whole project.",
@@ -490,7 +494,9 @@ UI: Dict[str, Dict[str, str]] = {
         "privacy_note": "El archivo vive solo en esta sesión y se borra tras la lectura. El modelo recibe únicamente el índice estructurado, nunca el XML; el contenido protegido no se decodifica.",
         "file_section": "Archivo del proyecto",
         "file_loaded": "**{name}** · {size:.1f} MB · leído en {secs:.1f} s · {programs} programas · {routines} rutinas",
-        "demo_loaded": "Archivo de demostración cargado desde APP_DEMO_FILE.",
+        "demo_loaded": "Proyecto de demostración cargado (sintético, no es una planta real). Suba su propio .L5X arriba para reemplazarlo.",
+        "demo_button": "Probar con un programa de demostración",
+        "demo_hint": "¿No tiene un L5X a mano? Use el proyecto sintético de una estación de bombeo: 2 bombas en rotación, AOIs, alarmas y algunos problemas plantados a propósito.",
         "empty_title": "Ningún proyecto cargado",
         "target": "Objetivo",
         "target_hint": "Explicar y Revisar aceptan rutina o programa; Documentar y Revisar aceptan el proyecto completo.",
@@ -657,7 +663,9 @@ UI["zh-CN"] = {
     "privacy_note": "文件仅存在于本次会话，解析后即删除。模型只接收结构化索引，绝不接收 XML；受保护内容不会被解码。",
     "file_section": "项目文件",
     "file_loaded": "**{name}** · {size:.1f} MB · 解析用时 {secs:.1f} 秒 · {programs} 个程序 · {routines} 个例程",
-    "demo_loaded": "已从 APP_DEMO_FILE 加载演示文件。",
+    "demo_loaded": "已加载演示项目（合成数据，并非真实工厂）。在上方上传您自己的 .L5X 即可替换。",
+    "demo_button": "用演示程序试一试",
+    "demo_hint": "手头没有 L5X？使用合成的泵站项目：2 台轮换运行的泵、AOI、报警以及若干故意预置的问题。",
     "empty_title": "未加载项目",
     "target": "目标",
     "target_hint": "解释和审查接受例程或程序；文档和审查也接受整个项目。",
@@ -823,7 +831,9 @@ UI["hi"] = {
     "privacy_note": "फ़ाइल केवल इस सत्र में रहती है और पढ़ने के बाद हटा दी जाती है। मॉडल को केवल संरचित इंडेक्स मिलता है, कभी XML नहीं; प्रोटेक्टेड सामग्री डिकोड नहीं होती।",
     "file_section": "प्रोजेक्ट फ़ाइल",
     "file_loaded": "**{name}** · {size:.1f} MB · {secs:.1f} s में पढ़ी गई · {programs} प्रोग्राम · {routines} रूटीन",
-    "demo_loaded": "APP_DEMO_FILE से डेमो फ़ाइल लोड हुई।",
+    "demo_loaded": "डेमो प्रोजेक्ट लोड हुआ (सिंथेटिक, वास्तविक प्लांट नहीं)। बदलने के लिए ऊपर अपनी .L5X अपलोड करें।",
+    "demo_button": "डेमो प्रोग्राम से आज़माएँ",
+    "demo_hint": "L5X फ़ाइल पास नहीं है? पंपिंग स्टेशन का सिंथेटिक प्रोजेक्ट इस्तेमाल करें: बारी-बारी चलने वाले 2 पंप, AOI, अलार्म और जानबूझकर रखी गई कुछ समस्याएँ।",
     "empty_title": "कोई प्रोजेक्ट लोड नहीं",
     "target": "लक्ष्य",
     "target_hint": "समझाएँ और समीक्षा रूटीन या प्रोग्राम लेते हैं; दस्तावेज़ और समीक्षा पूरा प्रोजेक्ट भी लेते हैं।",
@@ -870,6 +880,18 @@ UI["hi"] = {
 
 LANG_LABELS = {"pt-BR": "Português (BR)", "en": "English", "es": "Español", "zh-CN": "中文（简体）", "hi": "हिन्दी"}
 DOC_PROJECT_COST = 3
+DEMO_FILE = ROOT / "app" / "demo" / "EB01_Estacao_Bombeamento_DEMO.L5X"
+
+
+def demo_file() -> Tuple[Optional[str], bool]:
+    """(caminho do L5X de demonstração, abrir automaticamente?).
+
+    ``APP_DEMO_FILE`` apontando para um arquivo existente abre esse projeto sem upload (demonstrações
+    e testes). Sem a variável, o projeto sintético que acompanha o app fica disponível por um botão."""
+    env = os.environ.get("APP_DEMO_FILE")
+    if env and os.path.isfile(env):
+        return env, True
+    return (str(DEMO_FILE), False) if DEMO_FILE.is_file() else (None, False)
 
 
 def t(key: str, **kw: Any) -> str:
@@ -1605,15 +1627,20 @@ def main_area(store: CreditStore) -> Optional[ProjectContext]:
     ctx: Optional[ProjectContext] = None
     with st.expander(t("file_section"), expanded=not loaded):
         uploaded = st.file_uploader(t("upload_label"), type=["l5x", "L5X"], accept_multiple_files=False)
+        demo_path, demo_auto = demo_file()
         if uploaded is not None:
+            st.session_state.pop("use_demo", None)
             ctx = load_from_upload(uploaded.getvalue(), uploaded.name)
-        else:
-            demo = os.environ.get("APP_DEMO_FILE")
-            if demo and os.path.isfile(demo):
-                with open(demo, "rb") as fh:
-                    ctx = load_from_upload(fh.read(), os.path.basename(demo))
-                if ctx is not None:
-                    st.caption(t("demo_loaded"))
+        elif demo_path and (demo_auto or st.session_state.get("use_demo")):
+            with open(demo_path, "rb") as fh:
+                ctx = load_from_upload(fh.read(), os.path.basename(demo_path))
+            if ctx is not None:
+                st.caption(t("demo_loaded"))
+        elif demo_path:
+            st.caption(t("demo_hint"))
+            if st.button(f"🧪 {t('demo_button')}", key="btn_demo", type="primary"):
+                st.session_state["use_demo"] = True
+                st.rerun()
         if ctx is not None:
             meta = st.session_state.get("file_meta") or {"name": "", "size_mb": 0.0, "secs": 0.0}
             st.success(t("file_loaded", name=meta["name"], size=meta["size_mb"], secs=meta["secs"], programs=ctx.metrics.programs, routines=ctx.metrics.routines))

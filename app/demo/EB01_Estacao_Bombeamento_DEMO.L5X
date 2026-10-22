@@ -1,0 +1,477 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="35.00" TargetName="EB01_DEMO" TargetType="Controller" ContainsContext="false" ExportDate="Thu Oct 22 09:00:00 2026" ExportOptions="NoRawData L5KData DecoratedData">
+<Controller Use="Target" Name="EB01_DEMO" ProcessorType="1756-L83E" MajorRev="35" MinorRev="11">
+<Description><![CDATA[PROJETO DE DEMONSTRAÇÃO (sintético, não é uma planta real). Estação de bombeamento EB-01: dois conjuntos motobomba (B-101 e B-102) em rodízio, controle pelo nível do tanque TQ-101, proteções e alarmes. Contém problemas plantados de propósito para exercitar o diagnóstico.]]></Description>
+<DataTypes>
+<DataType Name="UDT_Receita" Family="NoFamily" Class="User">
+<Description><![CDATA[Parâmetros de operação ajustáveis pelo HMI]]></Description>
+<Members>
+<Member Name="Nivel_Partida" DataType="REAL" Dimension="0" Radix="Float" Hidden="false"><Description><![CDATA[Nível (m) que parte a bomba líder]]></Description></Member>
+<Member Name="Nivel_Parada" DataType="REAL" Dimension="0" Radix="Float" Hidden="false"><Description><![CDATA[Nível (m) que para o bombeamento]]></Description></Member>
+<Member Name="Pressao_Minima" DataType="REAL" Dimension="0" Radix="Float" Hidden="false"><Description><![CDATA[Pressão mínima (bar) com bomba rodando]]></Description></Member>
+</Members>
+</DataType>
+</DataTypes>
+<Modules>
+<Module Name="Local" CatalogNumber="1756-L83E" Vendor="1" ProductType="14" ProductCode="166" Major="35" Minor="11" ParentModule="Local" ParentModPortId="1" Inhibited="false" MajorFault="true"/>
+<Module Name="DI_Slot2" CatalogNumber="1756-IB16" Vendor="1" ProductType="7" ProductCode="11" Major="3" Minor="1" ParentModule="Local" ParentModPortId="1" Inhibited="false" MajorFault="false">
+<Description><![CDATA[Entradas digitais 24 Vcc - painel EB-01]]></Description>
+<Ports><Port Id="1" Address="2" Type="ICP" Upstream="true"/></Ports>
+<Communications>
+<Connections>
+<Connection Name="StandardInput" RPI="20000" Type="Input">
+<InputTag ExternalAccess="Read/Write">
+<Comments>
+<Comment Operand=".DATA.0"><![CDATA[LSH-101 chave de nível alto TQ-101]]></Comment>
+<Comment Operand=".DATA.1"><![CDATA[LSL-101 chave de nível baixo TQ-101]]></Comment>
+<Comment Operand=".DATA.2"><![CDATA[B-101 contator fechado (retorno de marcha)]]></Comment>
+<Comment Operand=".DATA.3"><![CDATA[B-102 contator fechado (retorno de marcha)]]></Comment>
+<Comment Operand=".DATA.4"><![CDATA[B-101 relé térmico atuado]]></Comment>
+<Comment Operand=".DATA.5"><![CDATA[B-102 relé térmico atuado]]></Comment>
+<Comment Operand=".DATA.6"><![CDATA[Botão de emergência (contato NF, 1 = OK)]]></Comment>
+<Comment Operand=".DATA.7"><![CDATA[Seletor Local/Remoto (1 = Remoto)]]></Comment>
+<Comment Operand=".DATA.8"><![CDATA[WIRED SPARE]]></Comment>
+<Comment Operand=".DATA.9"><![CDATA[WIRED SPARE]]></Comment>
+</Comments>
+</InputTag>
+</Connection>
+</Connections>
+</Communications>
+</Module>
+<Module Name="DO_Slot3" CatalogNumber="1756-OB16E" Vendor="1" ProductType="7" ProductCode="18" Major="3" Minor="1" ParentModule="Local" ParentModPortId="1" Inhibited="false" MajorFault="false">
+<Description><![CDATA[Saídas digitais 24 Vcc - painel EB-01]]></Description>
+<Ports><Port Id="1" Address="3" Type="ICP" Upstream="true"/></Ports>
+<Communications>
+<Connections>
+<Connection Name="StandardOutput" RPI="20000" Type="Output">
+<OutputTag ExternalAccess="Read/Write">
+<Comments>
+<Comment Operand=".DATA.0"><![CDATA[B-101 comando de partida (contator K1)]]></Comment>
+<Comment Operand=".DATA.1"><![CDATA[B-102 comando de partida (contator K2)]]></Comment>
+<Comment Operand=".DATA.2"><![CDATA[Sirene de alarme]]></Comment>
+<Comment Operand=".DATA.3"><![CDATA[Lâmpada de falha geral no painel]]></Comment>
+<Comment Operand=".DATA.4"><![CDATA[XV-101 abrir válvula de recalque]]></Comment>
+<Comment Operand=".DATA.5"><![CDATA[WIRED SPARE]]></Comment>
+</Comments>
+</OutputTag>
+</Connection>
+</Connections>
+</Communications>
+</Module>
+<Module Name="AI_Slot4" CatalogNumber="1756-IF8" Vendor="1" ProductType="10" ProductCode="451" Major="1" Minor="1" ParentModule="Local" ParentModPortId="1" Inhibited="false" MajorFault="false">
+<Description><![CDATA[Entradas analógicas 4-20 mA]]></Description>
+<Ports><Port Id="1" Address="4" Type="ICP" Upstream="true"/></Ports>
+<Communications>
+<Connections>
+<Connection Name="InputData" RPI="100000" Type="Input">
+<InputTag ExternalAccess="Read/Write">
+<Comments>
+<Comment Operand=".CH0.DATA"><![CDATA[LIT-101 nível do tanque TQ-101]]></Comment>
+<Comment Operand=".CH1.DATA"><![CDATA[PIT-101 pressão de recalque]]></Comment>
+<Comment Operand=".CH2.DATA"><![CDATA[FIT-101 vazão de recalque]]></Comment>
+<Comment Operand=".CH3.DATA"><![CDATA[WIRED SPARE]]></Comment>
+</Comments>
+<EngineeringUnits>
+<EngineeringUnit Operand=".CH0.DATA"><![CDATA[m]]></EngineeringUnit>
+<EngineeringUnit Operand=".CH1.DATA"><![CDATA[bar]]></EngineeringUnit>
+<EngineeringUnit Operand=".CH2.DATA"><![CDATA[m3/h]]></EngineeringUnit>
+</EngineeringUnits>
+<Maxes><Max Operand=".CH0.DATA">6</Max><Max Operand=".CH1.DATA">10</Max><Max Operand=".CH2.DATA">120</Max></Maxes>
+<Mins><Min Operand=".CH0.DATA">0</Min><Min Operand=".CH1.DATA">0</Min><Min Operand=".CH2.DATA">0</Min></Mins>
+</InputTag>
+</Connection>
+</Connections>
+</Communications>
+</Module>
+</Modules>
+<AddOnInstructionDefinitions>
+<AddOnInstructionDefinition Name="P_Alm" Revision="1.0" Vendor="EB01 Lib" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+<Description><![CDATA[Alarme discreto genérico com severidade e necessidade de reconhecimento]]></Description>
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false"/>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false"/>
+<Parameter Name="Inp" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true"><Description><![CDATA[Condição de alarme]]></Description></Parameter>
+<Parameter Name="Cfg_Severity" TagType="Base" DataType="INT" Usage="Input" Radix="Decimal" Required="false" Visible="false"><Description><![CDATA[Severidade 1-1000]]></Description>
+<DefaultData Format="Decorated"><DataValue DataType="INT" Radix="Decimal" Value="500"/></DefaultData>
+</Parameter>
+<Parameter Name="Cfg_AckReqd" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false"/>
+<Parameter Name="Cfg_Exists" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false">
+<DefaultData Format="Decorated"><DataValue DataType="BOOL" Radix="Decimal" Value="1"/></DefaultData>
+</Parameter>
+<Parameter Name="Alm" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true"/>
+</Parameters>
+<LocalTags/>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[Alarme só é gerado se estiver habilitado na configuração]]></Comment><Text><![CDATA[XIC(Inp)XIC(Cfg_Exists)OTE(Alm);]]></Text></Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+<AddOnInstructionDefinition Name="AI_Std" Revision="2.1" Vendor="EB01 Lib" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+<Description><![CDATA[Entrada analógica padrão: copia o valor escalado e gera alarme de range alto]]></Description>
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false"/>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false"/>
+<Parameter Name="Inp_PV" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="true" Visible="true"><Description><![CDATA[Valor bruto do cartão]]></Description></Parameter>
+<Parameter Name="Cfg_RangeMin" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="false" Visible="false">
+<DefaultData Format="Decorated"><DataValue DataType="REAL" Radix="Float" Value="0.0"/></DefaultData>
+</Parameter>
+<Parameter Name="Cfg_RangeMax" TagType="Base" DataType="REAL" Usage="Input" Radix="Float" Required="false" Visible="false">
+<DefaultData Format="Decorated"><DataValue DataType="REAL" Radix="Float" Value="100.0"/></DefaultData>
+</Parameter>
+<Parameter Name="Out_PV" TagType="Base" DataType="REAL" Usage="Output" Radix="Float" Required="true" Visible="true"><Description><![CDATA[Valor de processo em unidade de engenharia]]></Description></Parameter>
+</Parameters>
+<LocalTags>
+<LocalTag Name="AH_Alm" DataType="P_Alm" ExternalAccess="Read/Write"><Description><![CDATA[Alarme de range alto]]></Description></LocalTag>
+<LocalTag Name="Wrk_T" DataType="TIMER" ExternalAccess="None"/>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N"><Text><![CDATA[MOV(Inp_PV,Out_PV);]]></Text></Rung>
+<Rung Number="1" Type="N"><Text><![CDATA[GRT(Out_PV,Cfg_RangeMax)TON(Wrk_T,?,?);]]></Text></Rung>
+<Rung Number="2" Type="N"><Text><![CDATA[P_Alm(AH_Alm,Wrk_T.DN);]]></Text></Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+<AddOnInstructionDefinition Name="P_Motor" Revision="1.3" Vendor="EB01 Lib" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false">
+<Description><![CDATA[Motor de velocidade fixa: comando liga/desliga, supervisão de retorno de marcha e falha com reset]]></Description>
+<RevisionNote><![CDATA[1.3: tempo de retorno de marcha configurável (Cfg_FdbkT)]]></RevisionNote>
+<Parameters>
+<Parameter Name="EnableIn" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="false" Visible="false"/>
+<Parameter Name="EnableOut" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="false"/>
+<Parameter Name="Inp_Fdbk" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true"><Description><![CDATA[Retorno de marcha (contator fechado)]]></Description></Parameter>
+<Parameter Name="Inp_Fault" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true"><Description><![CDATA[Falha externa (relé térmico)]]></Description></Parameter>
+<Parameter Name="Cmd_Start" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true"><Description><![CDATA[Comando de partida da lógica]]></Description></Parameter>
+<Parameter Name="Cmd_Stop" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true"><Description><![CDATA[Comando de parada (prioritário)]]></Description></Parameter>
+<Parameter Name="Cmd_Reset" TagType="Base" DataType="BOOL" Usage="Input" Radix="Decimal" Required="true" Visible="true"><Description><![CDATA[Reset de falha]]></Description></Parameter>
+<Parameter Name="Cfg_FdbkT" TagType="Base" DataType="DINT" Usage="Input" Radix="Decimal" Required="false" Visible="false"><Description><![CDATA[Tempo (ms) para falha de retorno de marcha]]></Description>
+<DefaultData Format="Decorated"><DataValue DataType="DINT" Radix="Decimal" Value="5000"/></DefaultData>
+</Parameter>
+<Parameter Name="Sts_Running" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true"><Description><![CDATA[Motor rodando (retorno confirmado)]]></Description></Parameter>
+<Parameter Name="Sts_Fault" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="false" Visible="true"><Description><![CDATA[Motor em falha]]></Description></Parameter>
+<Parameter Name="Out_Run" TagType="Base" DataType="BOOL" Usage="Output" Radix="Decimal" Required="true" Visible="true"><Description><![CDATA[Saída para o contator]]></Description></Parameter>
+</Parameters>
+<LocalTags>
+<LocalTag Name="Wrk_FdbkTmr" DataType="TIMER" ExternalAccess="None"><Description><![CDATA[Temporizador de retorno de marcha]]></Description></LocalTag>
+</LocalTags>
+<Routines>
+<Routine Name="Logic" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[Preset do temporizador vem da configuração da instância]]></Comment><Text><![CDATA[MOV(Cfg_FdbkT,Wrk_FdbkTmr.PRE);]]></Text></Rung>
+<Rung Number="1" Type="N"><Comment><![CDATA[Saída liga com comando de partida, sem parada e sem falha]]></Comment><Text><![CDATA[XIC(Cmd_Start)XIO(Cmd_Stop)XIO(Sts_Fault)OTE(Out_Run);]]></Text></Rung>
+<Rung Number="2" Type="N"><Comment><![CDATA[Se a saída está ligada e o contator não retornou dentro do tempo, falha]]></Comment><Text><![CDATA[XIC(Out_Run)XIO(Inp_Fdbk)TON(Wrk_FdbkTmr,?,?);]]></Text></Rung>
+<Rung Number="3" Type="N"><Text><![CDATA[[XIC(Wrk_FdbkTmr.DN),XIC(Inp_Fault)]OTL(Sts_Fault);]]></Text></Rung>
+<Rung Number="4" Type="N"><Text><![CDATA[XIC(Cmd_Reset)XIO(Inp_Fault)OTU(Sts_Fault);]]></Text></Rung>
+<Rung Number="5" Type="N"><Text><![CDATA[XIC(Inp_Fdbk)OTE(Sts_Running);]]></Text></Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</AddOnInstructionDefinition>
+</AddOnInstructionDefinitions>
+<Tags>
+<Tag Name="Receita" TagType="Base" DataType="UDT_Receita" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Parâmetros de operação da EB-01 (ajustados no HMI)]]></Description>
+<Data Format="Decorated"><Structure DataType="UDT_Receita">
+<DataValueMember Name="Nivel_Partida" DataType="REAL" Radix="Float" Value="4.5"/>
+<DataValueMember Name="Nivel_Parada" DataType="REAL" Radix="Float" Value="1.2"/>
+<DataValueMember Name="Pressao_Minima" DataType="REAL" Radix="Float" Value="1.5"/>
+</Structure></Data>
+</Tag>
+<Tag Name="LIT_101" TagType="Base" DataType="AI_Std" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[LIT-101 nível do tanque TQ-101]]></Description>
+<EngineeringUnits><EngineeringUnit><![CDATA[m]]></EngineeringUnit></EngineeringUnits>
+<Areas><Area><![CDATA[EB-01]]></Area></Areas>
+<Data Format="Decorated"><Structure DataType="AI_Std">
+<DataValueMember Name="Cfg_RangeMin" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Cfg_RangeMax" DataType="REAL" Radix="Float" Value="6.0"/>
+<StructureMember Name="AH_Alm" DataType="P_Alm">
+<DataValueMember Name="Cfg_Severity" DataType="INT" Radix="Decimal" Value="750"/>
+<DataValueMember Name="Cfg_AckReqd" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Cfg_Exists" DataType="BOOL" Value="1"/>
+</StructureMember>
+<StructureMember Name="Wrk_T" DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="2000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/></StructureMember>
+</Structure></Data>
+</Tag>
+<Tag Name="PIT_101" TagType="Base" DataType="AI_Std" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[PIT-101 pressão de recalque]]></Description>
+<EngineeringUnits><EngineeringUnit><![CDATA[bar]]></EngineeringUnit></EngineeringUnits>
+<Areas><Area><![CDATA[EB-01]]></Area></Areas>
+<Data Format="Decorated"><Structure DataType="AI_Std">
+<DataValueMember Name="Cfg_RangeMin" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Cfg_RangeMax" DataType="REAL" Radix="Float" Value="10.0"/>
+<StructureMember Name="AH_Alm" DataType="P_Alm">
+<DataValueMember Name="Cfg_Severity" DataType="INT" Radix="Decimal" Value="500"/>
+<DataValueMember Name="Cfg_AckReqd" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Cfg_Exists" DataType="BOOL" Value="1"/>
+</StructureMember>
+<StructureMember Name="Wrk_T" DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="2000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/></StructureMember>
+</Structure></Data>
+</Tag>
+<Tag Name="FIT_101" TagType="Base" DataType="AI_Std" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[FIT-101 vazão de recalque]]></Description>
+<EngineeringUnits><EngineeringUnit><![CDATA[m3/h]]></EngineeringUnit></EngineeringUnits>
+<Data Format="Decorated"><Structure DataType="AI_Std">
+<DataValueMember Name="Cfg_RangeMin" DataType="REAL" Radix="Float" Value="0.0"/>
+<DataValueMember Name="Cfg_RangeMax" DataType="REAL" Radix="Float" Value="100.0"/>
+<StructureMember Name="AH_Alm" DataType="P_Alm">
+<DataValueMember Name="Cfg_Severity" DataType="INT" Radix="Decimal" Value="500"/>
+<DataValueMember Name="Cfg_AckReqd" DataType="BOOL" Value="0"/>
+<DataValueMember Name="Cfg_Exists" DataType="BOOL" Value="0"/>
+</StructureMember>
+<StructureMember Name="Wrk_T" DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="2000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/></StructureMember>
+</Structure></Data>
+</Tag>
+<Tag Name="B_101" TagType="Base" DataType="P_Motor" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[B-101 conjunto motobomba 1 (15 kW)]]></Description>
+<Areas><Area><![CDATA[EB-01]]></Area></Areas>
+<Data Format="Decorated"><Structure DataType="P_Motor">
+<DataValueMember Name="Cfg_FdbkT" DataType="DINT" Radix="Decimal" Value="5000"/>
+<StructureMember Name="Wrk_FdbkTmr" DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="5000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/></StructureMember>
+</Structure></Data>
+</Tag>
+<Tag Name="B_102" TagType="Base" DataType="P_Motor" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[B-102 conjunto motobomba 2 (15 kW)]]></Description>
+<Areas><Area><![CDATA[EB-01]]></Area></Areas>
+<Data Format="Decorated"><Structure DataType="P_Motor">
+<DataValueMember Name="Cfg_FdbkT" DataType="DINT" Radix="Decimal" Value="3000"/>
+<StructureMember Name="Wrk_FdbkTmr" DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="3000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/></StructureMember>
+</Structure></Data>
+</Tag>
+<Tag Name="LIT_101_Raw" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[LIT-101 valor bruto do cartão]]></Description></Tag>
+<Tag Name="LIT_101_PV" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[LIT-101 nível do TQ-101 em metros]]></Description></Tag>
+<Tag Name="PIT_101_Raw" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[PIT-101 valor bruto do cartão]]></Description></Tag>
+<Tag Name="PIT_101_PV" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[PIT-101 pressão de recalque em bar]]></Description></Tag>
+<Tag Name="FIT_101_Raw" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[FIT-101 valor bruto do cartão]]></Description></Tag>
+<Tag Name="FIT_101_PV" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[FIT-101 vazão de recalque em m3/h]]></Description></Tag>
+<Tag Name="LSH_101" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[LSH-101 chave de nível alto do TQ-101]]></Description></Tag>
+<Tag Name="LSL_101" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[LSL-101 chave de nível baixo do TQ-101 (proteção contra cavitação)]]></Description></Tag>
+<Tag Name="B_101_Fdbk" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-101 retorno de marcha (contator K1 fechado)]]></Description></Tag>
+<Tag Name="B_102_Fdbk" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-102 retorno de marcha (contator K2 fechado)]]></Description></Tag>
+<Tag Name="B_101_Term" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-101 relé térmico atuado]]></Description></Tag>
+<Tag Name="B_102_Term" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-102 relé térmico atuado]]></Description></Tag>
+<Tag Name="Emergencia_OK" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Botão de emergência não acionado (contato NF fechado)]]></Description></Tag>
+<Tag Name="Seletor_Remoto" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Seletor do painel em Remoto (CLP comanda)]]></Description></Tag>
+<Tag Name="B_101_Cmd" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-101 pedido de partida da lógica]]></Description></Tag>
+<Tag Name="B_102_Cmd" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-102 pedido de partida da lógica]]></Description></Tag>
+<Tag Name="Sirene" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Sirene de alarme do painel]]></Description></Tag>
+<Tag Name="Lamp_Falha" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Lâmpada de falha geral]]></Description></Tag>
+<Tag Name="XV_101_Abrir" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[XV-101 comando de abertura da válvula de recalque]]></Description></Tag>
+<Tag Name="Partida_Auto" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Botão PARTIR no HMI (partida manual do bombeamento)]]></Description></Tag>
+<Tag Name="Parada_Auto" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Botão PARAR no HMI (parada do bombeamento)]]></Description></Tag>
+<Tag Name="Reset_Alarmes" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Botão RESET de alarmes no HMI]]></Description></Tag>
+<Tag Name="Rodizio_Bomba" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Bomba líder do rodízio: 0 = B-101, 1 = B-102]]></Description>
+<Data Format="Decorated"><DataValue DataType="DINT" Radix="Decimal" Value="0"/></Data></Tag>
+<Tag Name="T_Partida_B102" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Atraso para partir a bomba de apoio com nível alto (evita partida simultânea)]]></Description>
+<Data Format="Decorated"><Structure DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="10000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/><DataValueMember Name="DN" DataType="BOOL" Value="0"/></Structure></Data>
+</Tag>
+<Tag Name="T_Pressao_Baixa" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Tempo com bomba rodando e pressão abaixo da mínima antes de alarmar]]></Description>
+<Data Format="Decorated"><Structure DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="15000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/><DataValueMember Name="DN" DataType="BOOL" Value="0"/></Structure></Data>
+</Tag>
+<Tag Name="T_Sirene" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Duração máxima da sirene sem reconhecimento]]></Description>
+<Data Format="Decorated"><Structure DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="30000"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/><DataValueMember Name="DN" DataType="BOOL" Value="0"/></Structure></Data>
+</Tag>
+<Tag Name="T_Sem_Preset" TagType="Base" DataType="TIMER" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Temporizador de teste deixado pelo comissionamento]]></Description>
+<Data Format="Decorated"><Structure DataType="TIMER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="0"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/><DataValueMember Name="DN" DataType="BOOL" Value="0"/></Structure></Data>
+</Tag>
+<Tag Name="C_Partidas_B101" TagType="Base" DataType="COUNTER" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Contador de partidas da B-101 (manutenção preventiva)]]></Description>
+<Data Format="Decorated"><Structure DataType="COUNTER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="500"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/></Structure></Data>
+</Tag>
+<Tag Name="C_Partidas_B102" TagType="Base" DataType="COUNTER" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[Contador de partidas da B-102 (manutenção preventiva)]]></Description>
+<Data Format="Decorated"><Structure DataType="COUNTER"><DataValueMember Name="PRE" DataType="DINT" Radix="Decimal" Value="500"/><DataValueMember Name="ACC" DataType="DINT" Radix="Decimal" Value="0"/></Structure></Data>
+</Tag>
+<Tag Name="Horimetro_B101" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Horímetro da B-101 em segundos]]></Description></Tag>
+<Tag Name="Horimetro_B102" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Horímetro da B-102 em segundos]]></Description></Tag>
+<Tag Name="Alm_Pressao_Baixa" TagType="Base" DataType="ALARM_DIGITAL" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[PAL-101 pressão de recalque baixa com bomba rodando]]></Description>
+<Data Format="Decorated"><Structure DataType="ALARM_DIGITAL">
+<DataValueMember Name="Severity" DataType="DINT" Radix="Decimal" Value="700"/>
+<DataValueMember Name="MinDurationPRE" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="AckRequired" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Latched" DataType="BOOL" Value="1"/>
+<DataValueMember Name="InAlarm" DataType="BOOL" Value="0"/>
+</Structure></Data>
+</Tag>
+<Tag Name="Alm_Nivel_Alto" TagType="Base" DataType="ALARM_DIGITAL" Constant="false" ExternalAccess="Read/Write">
+<Description><![CDATA[LAH-101 nível alto do TQ-101 (chave LSH-101)]]></Description>
+<Data Format="Decorated"><Structure DataType="ALARM_DIGITAL">
+<DataValueMember Name="Severity" DataType="DINT" Radix="Decimal" Value="500"/>
+<DataValueMember Name="MinDurationPRE" DataType="DINT" Radix="Decimal" Value="2000"/>
+<DataValueMember Name="AckRequired" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Latched" DataType="BOOL" Value="0"/>
+<DataValueMember Name="InAlarm" DataType="BOOL" Value="0"/>
+</Structure></Data>
+</Tag>
+<Tag Name="Alm_Emergencia" TagType="Base" DataType="ALARM_DIGITAL" Constant="false" ExternalAccess="Read/Write">
+<Data Format="Decorated"><Structure DataType="ALARM_DIGITAL">
+<DataValueMember Name="Severity" DataType="DINT" Radix="Decimal" Value="1000"/>
+<DataValueMember Name="MinDurationPRE" DataType="DINT" Radix="Decimal" Value="0"/>
+<DataValueMember Name="AckRequired" DataType="BOOL" Value="1"/>
+<DataValueMember Name="Latched" DataType="BOOL" Value="0"/>
+<DataValueMember Name="InAlarm" DataType="BOOL" Value="0"/>
+</Structure></Data>
+</Tag>
+<Tag Name="Alarme_Ativo" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Existe pelo menos um alarme ativo]]></Description></Tag>
+<Tag Name="Alarme_Reconhecido" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Operador reconheceu os alarmes (silencia a sirene)]]></Description></Tag>
+<Tag Name="Status_HMI" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Palavra de status para o HMI (bit 0 bombeando, bit 1 alarme)]]></Description></Tag>
+<Tag Name="Reserva_01" TagType="Base" DataType="DINT" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Reserva]]></Description></Tag>
+<Tag Name="Reserva_02" TagType="Base" DataType="REAL" Radix="Float" Constant="false" ExternalAccess="Read/Write"/>
+</Tags>
+<Programs>
+<Program Name="Bombeamento" TestEdits="false" MainRoutineName="Principal" Disabled="false" UseAsFolder="false">
+<Description><![CDATA[Controle da estação de bombeamento EB-01: leitura de entradas, partida/parada das bombas por nível com rodízio, intertravamentos, alarmes e saídas físicas.]]></Description>
+<Tags>
+<Tag Name="Bombeamento_Ativo" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Ciclo de bombeamento em andamento (selado entre nível de partida e de parada)]]></Description></Tag>
+<Tag Name="Lider_B101" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-101 é a bomba líder neste ciclo]]></Description></Tag>
+<Tag Name="Lider_B102" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-102 é a bomba líder neste ciclo]]></Description></Tag>
+<Tag Name="Pedido_Segunda_Bomba" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Nível alto persistente: pede a bomba de apoio]]></Description></Tag>
+<Tag Name="Ons_Rodizio" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Bit de borda do rodízio]]></Description></Tag>
+<Tag Name="Bloqueio_Emergencia" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[Emergência acionada: bloqueia válvula e bombas]]></Description></Tag>
+<Tag Name="B_101_Run" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-101 saída da AOI para o contator K1]]></Description></Tag>
+<Tag Name="B_102_Run" TagType="Base" DataType="BOOL" Radix="Decimal" Constant="false" ExternalAccess="Read/Write"><Description><![CDATA[B-102 saída da AOI para o contator K2]]></Description></Tag>
+</Tags>
+<Routines>
+<Routine Name="Principal" Type="RLL">
+<Description><![CDATA[Rotina principal: ordem de execução das sub-rotinas a cada varredura]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[1. Leitura e escala das entradas físicas]]></Comment><Text><![CDATA[JSR(Entradas,0);]]></Text></Rung>
+<Rung Number="1" Type="N"><Comment><![CDATA[2. Partida e parada das bombas por nível, com rodízio]]></Comment><Text><![CDATA[JSR(Partida_Bombas,0);]]></Text></Rung>
+<Rung Number="2" Type="N"><Comment><![CDATA[3. Intertravamentos e proteções]]></Comment><Text><![CDATA[JSR(Intertravamentos,0);]]></Text></Rung>
+<Rung Number="3" Type="N"><Comment><![CDATA[4. Alarmes, sirene e lâmpada de falha]]></Comment><Text><![CDATA[JSR(Alarmes,0);]]></Text></Rung>
+<Rung Number="4" Type="N"><Comment><![CDATA[5. Blocos de motor e saídas físicas]]></Comment><Text><![CDATA[JSR(Saidas,0);]]></Text></Rung>
+</RLLContent>
+</Routine>
+<Routine Name="Entradas" Type="RLL">
+<Description><![CDATA[Mapeia as entradas físicas dos cartões para tags do programa e escala as analógicas]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[Entradas digitais do cartão 1756-IB16 no slot 2]]></Comment><Text><![CDATA[XIC(Local:2:I.Data.0)OTE(LSH_101);]]></Text></Rung>
+<Rung Number="1" Type="N"><Text><![CDATA[XIC(Local:2:I.Data.1)OTE(LSL_101);]]></Text></Rung>
+<Rung Number="2" Type="N"><Text><![CDATA[XIC(Local:2:I.Data.2)OTE(B_101_Fdbk);]]></Text></Rung>
+<Rung Number="3" Type="N"><Text><![CDATA[XIC(Local:2:I.Data.3)OTE(B_102_Fdbk);]]></Text></Rung>
+<Rung Number="4" Type="N"><Text><![CDATA[XIC(Local:2:I.Data.4)OTE(B_101_Term);]]></Text></Rung>
+<Rung Number="5" Type="N"><Text><![CDATA[XIC(Local:2:I.Data.5)OTE(B_102_Term);]]></Text></Rung>
+<Rung Number="6" Type="N"><Text><![CDATA[XIC(Local:2:I.Data.6)OTE(Emergencia_OK);]]></Text></Rung>
+<Rung Number="7" Type="N"><Text><![CDATA[XIC(Local:2:I.Data.7)OTE(Seletor_Remoto);]]></Text></Rung>
+<Rung Number="8" Type="N"><Comment><![CDATA[Entradas analógicas: cópia do bruto e escala/alarme de range pela AOI AI_Std]]></Comment><Text><![CDATA[MOV(Local:4:I.Ch0.Data,LIT_101_Raw)AI_Std(LIT_101,LIT_101_Raw,LIT_101_PV);]]></Text></Rung>
+<Rung Number="9" Type="N"><Text><![CDATA[MOV(Local:4:I.Ch1.Data,PIT_101_Raw)AI_Std(PIT_101,PIT_101_Raw,PIT_101_PV);]]></Text></Rung>
+<Rung Number="10" Type="N"><Comment><![CDATA[A vazão é tratada em FBD]]></Comment><Text><![CDATA[JSR(Vazao_FBD,0);]]></Text></Rung>
+<Rung Number="11" Type="N"><Text><![CDATA[AI_Std(FIT_101,FIT_101_Raw,FIT_101_PV);]]></Text></Rung>
+</RLLContent>
+</Routine>
+<Routine Name="Partida_Bombas" Type="RLL">
+<Description><![CDATA[Partida e parada dos conjuntos motobomba B-101 e B-102 em função do nível do TQ-101, com rodízio de bomba líder e atraso para a bomba de apoio]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[Ciclo de bombeamento: inicia quando o nível passa do setpoint de partida ou o operador aperta PARTIR no HMI. Exige seletor em Remoto e emergência OK. Sela até o nível cair abaixo do setpoint de parada ou o operador apertar PARAR.]]></Comment><Text><![CDATA[[GEQ(LIT_101_PV,Receita.Nivel_Partida) ,XIC(Partida_Auto) ,XIC(Bombeamento_Ativo) ]XIC(Seletor_Remoto)XIC(Emergencia_OK)XIO(Parada_Auto)GRT(LIT_101_PV,Receita.Nivel_Parada)OTE(Bombeamento_Ativo);]]></Text></Rung>
+<Rung Number="1" Type="N"><Comment><![CDATA[Rodízio: a cada fim de ciclo (borda de descida do bombeamento) troca a bomba líder, para equalizar as horas de operação.]]></Comment><Text><![CDATA[XIO(Bombeamento_Ativo)ONS(Ons_Rodizio)XOR(Rodizio_Bomba,1,Rodizio_Bomba);]]></Text></Rung>
+<Rung Number="2" Type="N"><Comment><![CDATA[Seleção da bomba líder conforme o rodízio (0 = B-101, 1 = B-102).]]></Comment><Text><![CDATA[XIC(Bombeamento_Ativo)EQU(Rodizio_Bomba,0)OTE(Lider_B101);]]></Text></Rung>
+<Rung Number="3" Type="N"><Text><![CDATA[XIC(Bombeamento_Ativo)EQU(Rodizio_Bomba,1)OTE(Lider_B102);]]></Text></Rung>
+<Rung Number="4" Type="N"><Comment><![CDATA[Bomba de apoio: se, com o ciclo ativo, a chave de nível alto LSH-101 permanecer atuada por 10 s, a bomba líder não está vencendo a afluência.]]></Comment><Text><![CDATA[XIC(Bombeamento_Ativo)XIC(LSH_101)TON(T_Partida_B102,?,?);]]></Text></Rung>
+<Rung Number="5" Type="N"><Comment><![CDATA[Pedido da segunda bomba após o atraso.]]></Comment><Text><![CDATA[XIC(T_Partida_B102.DN)OTE(Pedido_Segunda_Bomba);]]></Text></Rung>
+<Rung Number="6" Type="N"><Comment><![CDATA[Pedido de partida de cada bomba: parte se for a líder ou se houver pedido de segunda bomba, desde que o relé térmico não esteja atuado.]]></Comment><Text><![CDATA[[XIC(Lider_B101) ,XIC(Pedido_Segunda_Bomba) ]XIO(B_101_Term)OTE(B_101_Cmd);]]></Text></Rung>
+<Rung Number="7" Type="N"><Text><![CDATA[[XIC(Lider_B102) ,XIC(Pedido_Segunda_Bomba) ]XIO(B_102_Term)OTE(B_102_Cmd);]]></Text></Rung>
+<Rung Number="8" Type="N"><Comment><![CDATA[Contagem de partidas para a manutenção preventiva (preset 500 partidas).]]></Comment><Text><![CDATA[XIC(B_101_Cmd)CTU(C_Partidas_B101,?,?);]]></Text></Rung>
+<Rung Number="9" Type="N"><Text><![CDATA[XIC(B_102_Cmd)CTU(C_Partidas_B102,?,?);]]></Text></Rung>
+</RLLContent>
+</Routine>
+<Routine Name="Intertravamentos" Type="RLL">
+<Description><![CDATA[Proteções: nível baixo, emergência, válvula de recalque e supervisão de pressão]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[Nível baixo (LSL-101): desliga a bomba de apoio imediatamente para evitar cavitação. ATENÇÃO: usa OTU sobre uma tag escrita por OTE em Partida_Bombas.]]></Comment><Text><![CDATA[XIC(LSL_101)OTU(B_102_Cmd);]]></Text></Rung>
+<Rung Number="1" Type="N"><Comment><![CDATA[Emergência acionada (contato NF aberto) gera bloqueio geral.]]></Comment><Text><![CDATA[XIO(Emergencia_OK)OTE(Bloqueio_Emergencia);]]></Text></Rung>
+<Rung Number="2" Type="N"><Comment><![CDATA[A válvula de recalque XV-101 abre quando qualquer bomba está rodando e não há bloqueio.]]></Comment><Text><![CDATA[[XIC(B_101.Sts_Running) ,XIC(B_102.Sts_Running) ]XIO(Bloqueio_Emergencia)OTE(XV_101_Abrir);]]></Text></Rung>
+<Rung Number="3" Type="N"><Comment><![CDATA[Pressão de recalque abaixo da mínima com bomba rodando por 15 s: bomba sem escorva ou válvula fechada.]]></Comment><Text><![CDATA[[XIC(B_101.Sts_Running) ,XIC(B_102.Sts_Running) ]LES(PIT_101_PV,Receita.Pressao_Minima)TON(T_Pressao_Baixa,?,?);]]></Text></Rung>
+<Rung Number="4" Type="N"><Text><![CDATA[XIC(Bloqueio_Emergencia)TON(T_Sem_Preset,?,?);]]></Text></Rung>
+</RLLContent>
+</Routine>
+<Routine Name="Alarmes" Type="RLL">
+<Description><![CDATA[Alarmes nativos (ALMD), consolidação, sirene com reconhecimento e lâmpada de falha]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[Alarmes digitais nativos com reset pelo botão do HMI]]></Comment><Text><![CDATA[ALMD(Alm_Pressao_Baixa,T_Pressao_Baixa.DN,0,Reset_Alarmes,0,0);]]></Text></Rung>
+<Rung Number="1" Type="N"><Text><![CDATA[ALMD(Alm_Nivel_Alto,LSH_101,0,Reset_Alarmes,0,0);]]></Text></Rung>
+<Rung Number="2" Type="N"><Text><![CDATA[ALMD(Alm_Emergencia,Bloqueio_Emergencia,0,Reset_Alarmes,0,0);]]></Text></Rung>
+<Rung Number="3" Type="N"><Comment><![CDATA[Alarme geral: qualquer alarme nativo em estado de alarme ou falha de motor]]></Comment><Text><![CDATA[[XIC(Alm_Pressao_Baixa.InAlarm) ,XIC(Alm_Nivel_Alto.InAlarm) ,XIC(Alm_Emergencia.InAlarm) ,XIC(B_101.Sts_Fault) ,XIC(B_102.Sts_Fault) ]OTE(Alarme_Ativo);]]></Text></Rung>
+<Rung Number="4" Type="N"><Comment><![CDATA[Sirene toca enquanto houver alarme não reconhecido, no máximo 30 s]]></Comment><Text><![CDATA[XIC(Alarme_Ativo)XIO(Alarme_Reconhecido)TON(T_Sirene,?,?);]]></Text></Rung>
+<Rung Number="5" Type="N"><Text><![CDATA[XIC(T_Sirene.TT)OTE(Sirene);]]></Text></Rung>
+<Rung Number="6" Type="N"><Comment><![CDATA[Reconhecimento sela até os alarmes sumirem]]></Comment><Text><![CDATA[XIC(Reset_Alarmes)XIC(Alarme_Ativo)OTL(Alarme_Reconhecido);]]></Text></Rung>
+<Rung Number="7" Type="N"><Text><![CDATA[XIO(Alarme_Ativo)OTU(Alarme_Reconhecido);]]></Text></Rung>
+<Rung Number="8" Type="N"><Text><![CDATA[XIC(Alarme_Ativo)OTE(Lamp_Falha);]]></Text></Rung>
+<Rung Number="9" Type="N"><Comment><![CDATA[Palavra de status para o HMI]]></Comment><Text><![CDATA[XIC(Bombeamento_Ativo)OTE(Status_HMI.0)XIC(Alarme_Ativo)OTE(Status_HMI.1);]]></Text></Rung>
+</RLLContent>
+</Routine>
+<Routine Name="Saidas" Type="RLL">
+<Description><![CDATA[Blocos de motor (P_Motor) e mapeamento para as saídas físicas do cartão do slot 3]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[Bloco de motor da B-101: comando, parada pelo HMI, reset de falha pelo botão de alarmes]]></Comment><Text><![CDATA[P_Motor(B_101,B_101_Fdbk,B_101_Term,B_101_Cmd,Parada_Auto,Reset_Alarmes,B_101_Run);]]></Text></Rung>
+<Rung Number="1" Type="N"><Text><![CDATA[P_Motor(B_102,B_102_Fdbk,B_102_Term,B_102_Cmd,Parada_Auto,Reset_Alarmes,B_102_Run);]]></Text></Rung>
+<Rung Number="2" Type="N"><Comment><![CDATA[Saídas físicas 1756-OB16E slot 3]]></Comment><Text><![CDATA[XIC(B_101_Run)XIO(Bloqueio_Emergencia)OTE(Local:3:O.Data.0);]]></Text></Rung>
+<Rung Number="3" Type="N"><Text><![CDATA[XIC(B_102_Run)XIO(Bloqueio_Emergencia)OTE(Local:3:O.Data.1);]]></Text></Rung>
+<Rung Number="4" Type="N"><Text><![CDATA[XIC(Sirene)OTE(Local:3:O.Data.2);]]></Text></Rung>
+<Rung Number="5" Type="N"><Text><![CDATA[XIC(Lamp_Falha)OTE(Local:3:O.Data.3);]]></Text></Rung>
+<Rung Number="6" Type="N"><Text><![CDATA[XIC(XV_101_Abrir)OTE(Local:3:O.Data.4);]]></Text></Rung>
+</RLLContent>
+</Routine>
+<Routine Name="Vazao_FBD" Type="FBD">
+<Description><![CDATA[Leitura da vazão FIT-101 em diagrama de blocos]]></Description>
+<FBDContent SheetSize="Letter - 8.5 x 11 in" SheetOrientation="Landscape">
+<Sheet Number="1">
+<IRef ID="0" X="100" Y="100" Operand="Local:4:I.Ch2.Data" HideDesc="false"/>
+<ORef ID="1" X="300" Y="100" Operand="FIT_101_Raw" HideDesc="false"/>
+<IRef ID="2" X="100" Y="260" Operand="Reserva_02" HideDesc="false"/>
+<Wire FromID="0" ToID="1"/>
+</Sheet>
+</FBDContent>
+</Routine>
+<Routine Name="Teste_Comissionamento" Type="RLL">
+<Description><![CDATA[Rotina de testes usada no comissionamento (2024). Deixada no projeto, sem JSR.]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Text><![CDATA[AFI()XIC(Partida_Auto)OTE(Sirene);]]></Text></Rung>
+<Rung Number="1" Type="N"><Text><![CDATA[AFI()MOV(3.0,LIT_101_Raw);]]></Text></Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+<Program Name="Utilidades" TestEdits="false" MainRoutineName="Horimetros" Disabled="false" UseAsFolder="false">
+<Description><![CDATA[Horímetros das bombas, executados em tarefa periódica de 1 s]]></Description>
+<Tags/>
+<Routines>
+<Routine Name="Horimetros" Type="RLL">
+<Description><![CDATA[Incrementa 1 s nos horímetros enquanto cada bomba estiver rodando]]></Description>
+<RLLContent>
+<Rung Number="0" Type="N"><Comment><![CDATA[A tarefa T_1000ms roda a cada 1 s, então cada varredura soma 1 segundo]]></Comment><Text><![CDATA[XIC(B_101.Sts_Running)ADD(Horimetro_B101,1,Horimetro_B101);]]></Text></Rung>
+<Rung Number="1" Type="N"><Text><![CDATA[XIC(B_102.Sts_Running)ADD(Horimetro_B102,1,Horimetro_B102);]]></Text></Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+<Program Name="Simulacao" TestEdits="false" MainRoutineName="Sim_Processo" Disabled="false" UseAsFolder="false">
+<Description><![CDATA[Simulação de processo para testes em bancada. Não deve estar agendado em produção.]]></Description>
+<Tags/>
+<Routines>
+<Routine Name="Sim_Processo" Type="RLL">
+<RLLContent>
+<Rung Number="0" Type="N"><Text><![CDATA[XIO(B_101_Cmd)XIO(B_102_Cmd)ADD(LIT_101_Raw,0.01,LIT_101_Raw);]]></Text></Rung>
+<Rung Number="1" Type="N"><Text><![CDATA[XIC(B_101_Cmd)OTE(B_101_Fdbk);]]></Text></Rung>
+</RLLContent>
+</Routine>
+</Routines>
+</Program>
+</Programs>
+<Tasks>
+<Task Name="MainTask" Type="CONTINUOUS" Priority="10" Watchdog="500" DisableUpdateOutputs="false" InhibitTask="false">
+<ScheduledPrograms><ScheduledProgram Name="Bombeamento"/></ScheduledPrograms>
+</Task>
+<Task Name="T_1000ms" Type="PERIODIC" Rate="1000" Priority="12" Watchdog="500" DisableUpdateOutputs="false" InhibitTask="false">
+<ScheduledPrograms><ScheduledProgram Name="Utilidades"/></ScheduledPrograms>
+</Task>
+</Tasks>
+</Controller>
+</RSLogix5000Content>

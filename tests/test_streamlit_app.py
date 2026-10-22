@@ -26,6 +26,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     monkeypatch.setenv("LLM_LOG_PATH", str(tmp_path / "log.csv"))
     monkeypatch.delenv("APP_LANGUAGE", raising=False)
+    monkeypatch.delenv("APP_DEMO_FILE", raising=False)
     import streamlit as st
 
     st.cache_resource.clear()
@@ -124,6 +125,30 @@ def test_full_app_with_demo_file(env, monkeypatch):
     assert "MyAoi rev. 1.0 · 1 inst. · 2 chamadas" in aoi_box.format_func("MyAoi")
     assert "SecretAoi" in aoi_box.format_func("SecretAoi") and "protegida" in aoi_box.format_func("SecretAoi")
     assert any(UI["pt-BR"]["aoi_analyze"] in b.label for b in at.button)
+
+
+def test_demo_button_loads_bundled_project(env):
+    """Sem APP_DEMO_FILE, o botão 'Testar com programa de demonstração' abre o L5X sintético que acompanha o app."""
+    from app.streamlit_app import DEMO_FILE
+
+    assert DEMO_FILE.is_file()
+    at = run_app()
+    at.text_input[0].input("DEMO")
+    at.button[0].click().run()
+    assert "project_hash" not in at.session_state
+    assert any(UI["pt-BR"]["demo_hint"] in c.value for c in at.caption)
+    demo_btn = next(b for b in at.button if UI["pt-BR"]["demo_button"] in b.label)
+    demo_btn.click().run()
+    assert not at.exception
+    assert at.session_state["use_demo"] is True
+    assert at.session_state["file_meta"]["name"] == DEMO_FILE.name
+    assert any(DEMO_FILE.name in s.value for s in at.success)
+    assert any(UI["pt-BR"]["demo_loaded"] in c.value for c in at.caption)
+    sidebar_md = " ".join(m.value for m in at.sidebar.markdown)
+    assert "EB01_DEMO" in sidebar_md and "1756-L83E" in sidebar_md
+    routine_box = next(s for s in at.selectbox if s.label == UI["pt-BR"]["routine"])
+    assert any(o.startswith("Partida_Bombas · RLL · 10 rungs") for o in routine_box.options)
+    assert any(UI["pt-BR"]["explain"] in b.label for b in at.button)
 
 
 def test_helpers():

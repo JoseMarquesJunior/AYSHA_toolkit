@@ -83,6 +83,16 @@ demonstração**, escolhe a rotina `Partida_Bombas`, clica em **Explicar** e gra
 depois de cortar as esperas. Faz **uma** chamada real ao modelo com a chave do `.env` (duas com `--chat`, que ainda
 pergunta "Quando a sirene toca e o que faz ela parar?" no Chat). `--url` grava contra outro endereço; `--keep-frames` mantém os PNGs.
 
+A tela de login mostra `app/static/aysha_demo_chat.gif` abaixo de "Como funciona" (se o arquivo existir). É uma versão
+leve do GIF com chat (800 px, 6 fps, 96 cores, ~3,5 MB), gerada a partir do MP4 para não pesar na página inicial:
+
+```bash
+ffmpeg -i docs/demo/aysha_demo_chat.mp4 -vf "fps=6,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" -loop 0 app/static/aysha_demo_chat.gif
+```
+
+(`ffmpeg` pode ser o binário do `imageio-ffmpeg`: `python -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())"`.)
+Regrave o vídeo e o GIF sempre que a interface mudar.
+
 ## Instalação e uso da CLI
 
 ```bash

@@ -163,6 +163,7 @@ UI: Dict[str, Dict[str, str]] = {
         "demo_loaded": "Projeto de demonstração carregado (sintético, não é uma planta real). Envie seu próprio .L5X acima para substituí-lo.",
         "demo_button": "Testar com programa de demonstração",
         "demo_hint": "Não tem um L5X à mão? Use o projeto sintético de uma estação de bombeamento: 2 bombas em rodízio, AOIs, alarmes e alguns problemas plantados de propósito.",
+        "demo_gif_caption": "Em 40 segundos: programa de demonstração, explicação de uma rotina rung a rung e uma pergunta no chat.",
         "empty_title": "Nenhum projeto carregado",
         "target": "Alvo",
         "target_hint": "Explicar e Revisar aceitam rotina ou programa; Documentar e Revisar aceitam o projeto inteiro.",
@@ -330,6 +331,7 @@ UI: Dict[str, Dict[str, str]] = {
         "demo_loaded": "Demo project loaded (synthetic, not a real plant). Upload your own .L5X above to replace it.",
         "demo_button": "Try it with a demo program",
         "demo_hint": "No L5X at hand? Use the synthetic pumping-station project: 2 pumps in rotation, AOIs, alarms and a few issues planted on purpose.",
+        "demo_gif_caption": "In 40 seconds: demo program, rung-by-rung explanation of a routine and a question in the chat.",
         "empty_title": "No project loaded",
         "target": "Target",
         "target_hint": "Explain and Review take a routine or a program; Document and Review also take the whole project.",
@@ -497,6 +499,7 @@ UI: Dict[str, Dict[str, str]] = {
         "demo_loaded": "Proyecto de demostración cargado (sintético, no es una planta real). Suba su propio .L5X arriba para reemplazarlo.",
         "demo_button": "Probar con un programa de demostración",
         "demo_hint": "¿No tiene un L5X a mano? Use el proyecto sintético de una estación de bombeo: 2 bombas en rotación, AOIs, alarmas y algunos problemas plantados a propósito.",
+        "demo_gif_caption": "En 40 segundos: programa de demostración, explicación de una rutina rung a rung y una pregunta en el chat.",
         "empty_title": "Ningún proyecto cargado",
         "target": "Objetivo",
         "target_hint": "Explicar y Revisar aceptan rutina o programa; Documentar y Revisar aceptan el proyecto completo.",
@@ -666,6 +669,7 @@ UI["zh-CN"] = {
     "demo_loaded": "已加载演示项目（合成数据，并非真实工厂）。在上方上传您自己的 .L5X 即可替换。",
     "demo_button": "用演示程序试一试",
     "demo_hint": "手头没有 L5X？使用合成的泵站项目：2 台轮换运行的泵、AOI、报警以及若干故意预置的问题。",
+    "demo_gif_caption": "40 秒演示：演示程序、逐梯级解释一个例程，以及在聊天中提问。",
     "empty_title": "未加载项目",
     "target": "目标",
     "target_hint": "解释和审查接受例程或程序；文档和审查也接受整个项目。",
@@ -834,6 +838,7 @@ UI["hi"] = {
     "demo_loaded": "डेमो प्रोजेक्ट लोड हुआ (सिंथेटिक, वास्तविक प्लांट नहीं)। बदलने के लिए ऊपर अपनी .L5X अपलोड करें।",
     "demo_button": "डेमो प्रोग्राम से आज़माएँ",
     "demo_hint": "L5X फ़ाइल पास नहीं है? पंपिंग स्टेशन का सिंथेटिक प्रोजेक्ट इस्तेमाल करें: बारी-बारी चलने वाले 2 पंप, AOI, अलार्म और जानबूझकर रखी गई कुछ समस्याएँ।",
+    "demo_gif_caption": "40 सेकंड में: डेमो प्रोग्राम, एक रूटीन की रंग-दर-रंग व्याख्या और चैट में एक सवाल।",
     "empty_title": "कोई प्रोजेक्ट लोड नहीं",
     "target": "लक्ष्य",
     "target_hint": "समझाएँ और समीक्षा रूटीन या प्रोग्राम लेते हैं; दस्तावेज़ और समीक्षा पूरा प्रोजेक्ट भी लेते हैं।",
@@ -881,6 +886,7 @@ UI["hi"] = {
 LANG_LABELS = {"pt-BR": "Português (BR)", "en": "English", "es": "Español", "zh-CN": "中文（简体）", "hi": "हिन्दी"}
 DOC_PROJECT_COST = 3
 DEMO_FILE = ROOT / "app" / "demo" / "EB01_Estacao_Bombeamento_DEMO.L5X"
+DEMO_GIF = ROOT / "app" / "static" / "aysha_demo_chat.gif"  # gravado por docs/portfolio_src/gravar_demo.py --chat
 
 
 def demo_file() -> Tuple[Optional[str], bool]:
@@ -1096,6 +1102,11 @@ def login_screen(store: CreditStore) -> None:
         st.subheader(t("how_title"))
         st.markdown(t("how_steps").replace("\n", "  \n"))
         st.caption(t("privacy_note"))
+    if DEMO_GIF.is_file():
+        # demonstração animada abaixo das duas colunas, perto da largura nativa do GIF (800 px)
+        st.caption(t("demo_gif_caption"))
+        _, mid, _ = st.columns([1, 10, 1])
+        mid.image(str(DEMO_GIF), width="stretch")
 
 
 def sidebar(store: CreditStore, ctx: Optional[ProjectContext]) -> None:

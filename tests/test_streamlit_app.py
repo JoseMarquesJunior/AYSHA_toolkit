@@ -50,6 +50,15 @@ def test_login_required_and_invalid_code(env):
     assert "code" not in at.session_state
 
 
+def test_login_screen_shows_demo_gif(env):
+    from app.streamlit_app import DEMO_GIF
+
+    assert DEMO_GIF.is_file() and DEMO_GIF.stat().st_size < 8_000_000  # leve o bastante para a página inicial
+    at = run_app()
+    assert any(UI["pt-BR"]["demo_gif_caption"] in c.value for c in at.caption)
+    assert len(at.get("image")) == 1
+
+
 def test_login_ok_shows_upload_sidebar_and_balance(env):
     at = run_app()
     at.text_input[0].input("DEMO")
